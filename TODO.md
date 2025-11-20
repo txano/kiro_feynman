@@ -150,6 +150,7 @@
 - [ ] Audio quality optimization for speech
 - [ ] Power consumption optimization
 - [ ] Manufacturing and scaling considerations
+- [ ] Consider BLE provisioning as alternative to SoftAP
 
 ---
 

@@ -49,37 +49,40 @@ Initialize WiFi Provisioning
    ▼
 Check if Provisioned?
    │
-   ├─ NO ──► Start BLE Provisioning ──► Show BT Icon (Blue)
+   ├─ NO ──► Start SoftAP Provisioning ──► Show "No WiFi" (Orange)
    │            │
    │            ▼
-   │         Wait for App Connection
+   │         Create AP: STORY_XXXXXX
    │            │
    │            ▼
-   │         Receive WiFi Credentials ──► Show BT + Checkmark
+   │         Wait for Phone Connection
    │            │
    │            ▼
-   │         Connect to WiFi ──────────► Show WiFi Icon (Green)
+   │         Receive WiFi Credentials ──► Show "Connecting..." (Cyan)
+   │            │
+   │            ▼
+   │         Connect to WiFi
    │            │
    │            └──────────────────────┐
    │                                   │
    └─ YES ─► Auto-connect to WiFi ────┤
                                        │
                                        ▼
-                              WiFi Connected ──► Show WiFi + Checkmark
+                              WiFi Connected ──► Get IP from ESP-IDF
                                        │
                                        ▼
-                                  Show Ready ──► Show Checkmark
+                              Show "IP: xxx.xxx.xxx.xxx" (Green, scrolling)
                                        │
                                        ▼
                                   Main Loop
-                                  (idle for now)
+                                  (continuously scroll IP)
 ```
 
 ### Event-Driven Architecture
 
 ```
 ┌──────────────────┐
-│  WiFi/BLE Events │
+│  WiFi/AP Events  │
 └────────┬─────────┘
          │
          ▼
@@ -92,6 +95,7 @@ Check if Provisioned?
 │  • WIFI_PROV_CRED_SUCCESS              │
 │  • WIFI_PROV_CRED_FAIL                 │
 │  • WIFI_EVENT_STA_DISCONNECTED         │
+│  • WIFI_EVENT_AP_STACONNECTED          │
 │  • IP_EVENT_STA_GOT_IP                 │
 └────────┬───────────────────────────────┘
          │
@@ -99,12 +103,16 @@ Check if Provisioned?
 ┌────────────────────────────────────────┐
 │   Status Callback                      │
 │   (wifi_status_callback)               │
+│   Updates: wifi_connected flag         │
+│            ip_display_text             │
 └────────┬───────────────────────────────┘
          │
          ▼
 ┌────────────────────────────────────────┐
-│   LED Matrix Update                    │
-│   (led_matrix_show_status)             │
+│   Main Loop                            │
+│   • Gets IP from ESP-IDF netif         │
+│   • Updates display text               │
+│   • Scrolls text on LED matrix         │
 └────────────────────────────────────────┘
 ```
 
@@ -222,11 +230,13 @@ Monitor Playback
 ### Provisioning Data Flow
 
 ```
-Phone App ──BLE──► ESP32 ──► NVS Storage
-                     │
-                     └──► WiFi Connection
-                            │
-                            └──► Cloud Service (future)
+Phone ──WiFi (SoftAP)──► ESP32 ──► NVS Storage
+                           │
+                           └──► WiFi Connection (STA mode)
+                                  │
+                                  ├──► Get IP from ESP-IDF
+                                  │
+                                  └──► Cloud Service (future)
 ```
 
 ### Audio Streaming Data Flow (Planned)
@@ -290,8 +300,9 @@ Potentiometer ──ADC──► Volume Control
 
 ### Current (Phase 1)
 - ✅ WPA2 WiFi encryption
-- ✅ BLE pairing with PoP
-- ⚠️ Hardcoded PoP (should be unique per device)
+- ✅ SoftAP provisioning with Security 1 + PoP
+- ✅ Open AP (no password for provisioning network)
+- ⚠️ Hardcoded PoP (should be unique per device in production)
 
 ### Future Phases
 - 🔒 HTTPS for audio streaming

@@ -19,29 +19,29 @@
 
 ## Provisioning Test
 
-### Method 1: ESP BLE Provisioning App (Recommended)
+### Method 1: ESP SoftAP Provisioning App (Recommended)
 
 1. Install app on your phone
-2. Open app and tap "Provision New Device"
-3. Select `STORY_XXXXXX` from the list
-4. Enter PoP: `abcd1234`
-5. Select your WiFi network
-6. Enter WiFi password
-7. Wait for connection
+2. Connect phone to `STORY_XXXXXX` WiFi network (open, no password)
+3. Open ESP SoftAP Provisioning app
+4. Tap "Provision New Device"
+5. Device should be detected automatically
+6. Enter PoP: `abcd1234`
+7. Select your WiFi network
+8. Enter WiFi password
+9. Wait for connection
 
 **Expected LED sequence**:
-- Blue BT icon (searching)
-- Blue BT icon + checkmark (connected)
-- Green WiFi icon (connecting)
-- Green WiFi icon + checkmark (connected)
-- Green checkmark (ready)
+- Orange "No WiFi" (scrolling)
+- Cyan "Connecting..." (scrolling)
+- Green "IP: 192.168.x.x" (scrolling)
 
 ### Method 2: Command Line (Advanced)
 
 Using `esp-idf/tools/esp_prov`:
 
 ```bash
-python esp_prov.py --transport ble --service_name STORY_XXXXXX --pop abcd1234 --ssid "YourWiFi" --passphrase "YourPassword"
+python esp_prov.py --transport softap --service_name STORY_XXXXXX --pop abcd1234 --ssid "YourWiFi" --passphrase "YourPassword"
 ```
 
 ## Expected Serial Output
@@ -63,27 +63,29 @@ I (xxx) main: WiFi Status: BLE_SEARCHING
 
 After connecting via app:
 ```
-I (xxx) wifi_prov: Received Wi-Fi credentials - SSID:YourWiFi
-I (xxx) main: WiFi Status: BLE_CONNECTED
-I (xxx) wifi_prov: Provisioning successful
+I (xxx) wifi_prov: WIFI_PROV_CRED_RECV - Received Wi-Fi credentials - SSID:YourWiFi
 I (xxx) main: WiFi Status: WIFI_CONNECTING
-I (xxx) wifi_prov: Connected with IP Address:192.168.x.x
+I (xxx) wifi_prov: WIFI_PROV_CRED_SUCCESS - Provisioning successful, waiting for IP...
+I (xxx) wifi_prov: IP_EVENT_STA_GOT_IP - Connected with IP Address:192.168.x.x
 I (xxx) main: WiFi Status: WIFI_CONNECTED
+I (xxx) main: Checking IP: 192.168.x.x (wifi_connected=1)
+I (xxx) main: IP Address updated: IP: 192.168.x.x
 ```
 
 ## Troubleshooting
 
-### Issue: Device not found in BLE app
+### Issue: Cannot find STORY_XXXXXX WiFi network
 **Check**:
 - Serial output shows "Provisioning started"
-- Bluetooth is enabled on phone
-- Phone is close to device (<5m)
-- No other BLE provisioning in progress
+- Device is not already provisioned
+- WiFi is enabled on phone
+- Phone is close to device (<10m)
 
 **Fix**:
 - Reset device (press reset button)
-- Restart BLE app
-- Check serial for actual service name
+- Erase flash: `pio run --target erase`
+- Check serial for actual AP name
+- Make sure you're looking for WiFi networks, not Bluetooth devices
 
 ### Issue: "Invalid PoP" error
 **Check**:
@@ -105,13 +107,15 @@ E (xxx) wifi_prov: Provisioning failed! Reason : Wi-Fi auth error
 - Reset provisioning: `pio run --target erase`
 - Try again with correct credentials
 
-### Issue: LED matrix shows red X
-**Meaning**: Provisioning or WiFi connection failed
+### Issue: LED matrix shows "Error!" or "Retrying..."
+**Meaning**: WiFi connection failed (wrong password or network issue)
 
 **Fix**:
-- Check serial output for specific error
-- Reset device and try again
-- Verify WiFi credentials
+- Check serial output for disconnect reason (202 = auth error, 201 = AP not found)
+- Verify WiFi password is correct
+- Ensure WiFi is 2.4GHz and WPA2
+- Check WiFi signal strength
+- Reset provisioning and try again
 
 ### Issue: LED matrix not lighting up
 **Check**:

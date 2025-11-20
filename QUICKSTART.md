@@ -8,9 +8,9 @@
    - VS Code: Install "PlatformIO IDE" extension
    - Or CLI: `pip install platformio`
 
-2. **Install ESP BLE Provisioning App** on your phone
-   - [Android](https://play.google.com/store/apps/details?id=com.espressif.provble)
-   - [iOS](https://apps.apple.com/app/esp-ble-provisioning/id1473590141)
+2. **Install ESP SoftAP Provisioning App** on your phone
+   - [Android](https://play.google.com/store/apps/details?id=com.espressif.provsoftap)
+   - [iOS](https://apps.apple.com/app/esp-softap-provisioning/id1474040630)
 
 ### Step 1: Build and Flash (2 minutes)
 
@@ -31,41 +31,44 @@ pio device monitor
 You should see:
 ```
 I (xxx) main: Story Device - Starting...
-I (xxx) wifi_prov: Provisioning started with service name: STORY_A1B2C3
+I (xxx) wifi_prov: Generated service name: STORY_A1B2C3
+I (xxx) wifi_prov: ✓ AP name: STORY_A1B2C3
+I (xxx) wifi_prov: ✓ Connect to this AP and use ESP SoftAP Prov app
 I (xxx) wifi_prov: Proof of Possession (PoP): abcd1234
 ```
 
-**Note the device name** (e.g., `STORY_A1B2C3`)
+**Note the AP name** (e.g., `STORY_A1B2C3`)
 
 ### Step 3: Watch the LED Matrix (10 seconds)
 
 The 8x8 LED matrix should show:
 - Brief "INIT" text
-- Blue Bluetooth icon (blinking/static)
+- Orange scrolling text "No WiFi"
 
 ### Step 4: Provision via Phone App (2 minutes)
 
-1. Open **ESP BLE Provisioning** app
-2. Tap **"Provision New Device"**
-3. Select **STORY_XXXXXX** from the list
-4. Enter PoP: **abcd1234**
-5. Select your **WiFi network**
-6. Enter **WiFi password**
-7. Tap **"Provision"**
+1. **Connect your phone** to the **STORY_XXXXXX** WiFi network (open, no password)
+2. Open **ESP SoftAP Provisioning** app
+3. Tap **"Provision New Device"**
+4. Device should be detected automatically
+5. Enter PoP: **abcd1234**
+6. Select your **WiFi network**
+7. Enter **WiFi password**
+8. Tap **"Provision"**
 
 ### Step 5: Watch the Magic! (30 seconds)
 
 **LED Matrix will show:**
-1. 🔵 Blue Bluetooth icon → ✅ Checkmark (credentials received)
-2. 🟢 Green WiFi icon (connecting)
-3. 🟢 Green WiFi icon → ✅ Checkmark (connected)
-4. ✅ Final checkmark (ready!)
+1. 🟠 Orange "No WiFi" (waiting for provisioning)
+2. 🔵 Cyan "Connecting..." (attempting connection)
+3. 🟢 Green "IP: 192.168.x.x" (connected and scrolling IP address!)
 
 **Serial Monitor will show:**
 ```
-I (xxx) wifi_prov: Received Wi-Fi credentials - SSID:YourWiFi
-I (xxx) wifi_prov: Connected with IP Address:192.168.x.x
+I (xxx) wifi_prov: WIFI_PROV_CRED_RECV - Received Wi-Fi credentials - SSID:YourWiFi
+I (xxx) wifi_prov: IP_EVENT_STA_GOT_IP - Connected with IP Address:192.168.x.x
 I (xxx) main: WiFi Status: WIFI_CONNECTED
+I (xxx) main: IP Address updated: IP: 192.168.x.x
 ```
 
 ### ✅ Success!
@@ -79,10 +82,11 @@ Your device is now:
 
 ## 🔧 Troubleshooting
 
-### Device not found in app?
-- Check Bluetooth is enabled on phone
-- Device is within 5 meters
-- Look for exact device name in serial output
+### Cannot connect to STORY_XXXXXX WiFi?
+- Make sure device is powered on and not already provisioned
+- The network is open (no password)
+- Look for exact AP name in serial output
+- Try forgetting the network and reconnecting
 
 ### WiFi connection fails?
 - Verify WiFi is 2.4GHz (not 5GHz)

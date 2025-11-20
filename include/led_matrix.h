@@ -22,6 +22,7 @@ typedef enum {
 void led_matrix_init();
 void led_matrix_show_status(led_status_t status);
 void led_matrix_show_text(const char* text);
+void led_matrix_scroll_text(const char* text, uint16_t color);
 void led_matrix_clear();
 void led_matrix_set_brightness(uint8_t brightness);
 

@@ -128,3 +128,35 @@ void led_matrix_show_text(const char* text) {
         scroll_x = MATRIX_WIDTH;
     }
 }
+
+void led_matrix_scroll_text(const char* text, uint16_t color) {
+    static int local_scroll_x = MATRIX_WIDTH;
+    static unsigned long last_update = 0;
+    static const char* last_text = nullptr;
+    
+    // Reset scroll position if text changed
+    if (last_text != text) {
+        local_scroll_x = MATRIX_WIDTH;
+        last_text = text;
+    }
+    
+    // Update every 80ms for smooth scrolling
+    unsigned long now = millis();
+    if (now - last_update < 80) {
+        return;
+    }
+    last_update = now;
+    
+    matrix.fillScreen(0);
+    matrix.setCursor(local_scroll_x, 0);
+    matrix.setTextColor(color);
+    matrix.print(text);
+    matrix.show();
+    
+    // Update scroll position
+    local_scroll_x--;
+    int text_pixel_width = strlen(text) * 6; // Each char is ~6 pixels wide
+    if (local_scroll_x < -(text_pixel_width)) {
+        local_scroll_x = MATRIX_WIDTH;
+    }
+}

@@ -12,8 +12,8 @@ An ESP32-S3 based storytelling device with LED matrix display and audio streamin
 ## Features
 
 ### Phase 1 (Current) ✅
-- [x] WiFi provisioning via BLE
-- [x] LED matrix status indicators
+- [x] WiFi provisioning via SoftAP
+- [x] LED matrix status indicators with scrolling text
 - [x] Visual feedback during provisioning
 
 ### Phase 2 (Next)
@@ -48,30 +48,31 @@ pio device monitor
 
 ## WiFi Provisioning
 
-### Using ESP BLE Provisioning App
+### Using ESP SoftAP Provisioning App
 
 1. Download the app:
-   - **Android**: [ESP BLE Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provble)
-   - **iOS**: [ESP BLE Provisioning](https://apps.apple.com/app/esp-ble-provisioning/id1473590141)
+   - **Android**: [ESP SoftAP Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provsoftap)
+   - **iOS**: [ESP SoftAP Provisioning](https://apps.apple.com/app/esp-softap-provisioning/id1474040630)
 
 2. Power on the device
-3. LED matrix will show Bluetooth icon (blue)
-4. Open the app and scan for devices
-5. Look for device named `STORY_XXXXXX` (last 3 bytes of MAC address)
-6. Enter Proof of Possession: `abcd1234`
-7. Select your WiFi network and enter password
-8. LED matrix will show:
-   - Bluetooth icon → Checkmark (credentials received)
-   - WiFi icon (connecting)
-   - WiFi icon → Checkmark (connected)
-   - Final checkmark (ready)
+3. LED matrix will scroll "No WiFi" in orange
+4. Device creates a WiFi access point named `STORY_XXXXXX` (last 3 bytes of MAC address)
+5. Connect your phone to the `STORY_XXXXXX` WiFi network
+6. Open the ESP SoftAP Provisioning app
+7. Enter Proof of Possession: `abcd1234`
+8. Select your WiFi network and enter password
+9. LED matrix will show:
+   - "Connecting..." in cyan (attempting connection)
+   - "IP: xxx.xxx.xxx.xxx" in green (successfully connected)
+   - "Error!" or "Retrying..." in orange (if connection fails)
 
-### LED Matrix Status Indicators
+### LED Matrix Status Display
 
-- **Blue Bluetooth icon**: Waiting for BLE connection
-- **Green WiFi icon**: Connecting to WiFi
-- **Green Checkmark**: Successfully connected
-- **Red X**: Error occurred
+- **Orange "No WiFi"**: Waiting for provisioning
+- **Cyan "Connecting..."**: Attempting to connect to WiFi
+- **Green "IP: xxx.xxx.xxx.xxx"**: Successfully connected (scrolling IP address)
+- **Orange "Retrying..."**: Connection failed, retrying
+- **Orange "Error!"**: Provisioning error occurred
 
 ## Project Structure
 
@@ -103,15 +104,24 @@ pio device monitor
 
 ## Troubleshooting
 
-### Device not showing in BLE app
-- Make sure Bluetooth is enabled on your phone
-- Check serial monitor for device name
+### Device not showing as WiFi access point
+- Check serial monitor for device name (STORY_XXXXXX)
+- Make sure device is not already provisioned (erase flash if needed)
 - Try resetting the device
 
-### WiFi connection fails
-- Verify WiFi credentials
+### Cannot connect to STORY_XXXXXX network
+- The network is open (no password required)
+- Make sure you're within range
+- Check serial monitor for errors
+
+### WiFi connection fails (Auth Error 202)
+- Verify WiFi password is correct
 - Check if WiFi network is 2.4GHz (ESP32 doesn't support 5GHz)
-- Check signal strength
+- Ensure WPA2 security (WPA3 not supported)
+
+### Device shows "Getting IP..." but never gets IP
+- This was a bug, now fixed - device gets IP from ESP-IDF directly
+- If still occurring, check router DHCP settings
 
 ### LED matrix not working
 - Verify GPIO 14 connection
@@ -119,10 +129,13 @@ pio device monitor
 - Brightness is set to 10 to prevent overheating
 
 ### Reset provisioning
-To clear saved WiFi credentials and start fresh, you can erase NVS:
+To clear saved WiFi credentials and start fresh:
 ```bash
 pio run --target erase
+pio run --target upload
 ```
+
+Or temporarily enable the reset in code (already in main.cpp for testing)
 
 ## Next Steps
 

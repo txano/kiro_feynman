@@ -18,11 +18,12 @@ A complete WiFi provisioning system with visual feedback for your ESP32-S3 story
    - Safe brightness settings
 
 3. **WiFi Provisioning System**
-   - BLE-based provisioning
-   - ESP BLE Provisioning app compatible
-   - Automatic device naming
+   - SoftAP-based provisioning
+   - ESP SoftAP Provisioning app compatible
+   - Automatic device naming (STORY_XXXXXX)
    - Credential storage in NVS
    - Auto-reconnect on boot
+   - Scrolling IP address display on LED matrix
 
 4. **Main Application**
    - Clean initialization sequence
@@ -67,18 +68,20 @@ story-device/
 - ✅ Color control
 
 ### WiFi Provisioning
-- ✅ BLE advertisement
-- ✅ Device discovery
-- ✅ Credential exchange
-- ✅ WiFi connection
+- ✅ SoftAP mode
+- ✅ Device discovery via WiFi
+- ✅ Credential exchange with Security 1 + PoP
+- ✅ WiFi connection with retry logic
 - ✅ NVS storage
 - ✅ Auto-reconnect
+- ✅ IP address retrieval from ESP-IDF
 
 ### Integration
-- ✅ Visual feedback during provisioning
+- ✅ Visual feedback with scrolling text during provisioning
 - ✅ Event-driven status updates
-- ✅ Clean serial logging
+- ✅ Clean serial logging with detailed error codes
 - ✅ Modular architecture
+- ✅ IP address display from ESP-IDF (not Arduino WiFi library)
 
 ## 🧪 Testing Checklist
 
@@ -86,12 +89,14 @@ Before moving to Phase 2, verify:
 
 - [ ] Device boots successfully
 - [ ] LED matrix shows "INIT" text
-- [ ] BLE provisioning starts (blue icon)
-- [ ] Device appears in ESP BLE Prov app
-- [ ] Can connect with PoP: abcd1234
+- [ ] SoftAP provisioning starts (orange "No WiFi")
+- [ ] Device creates STORY_XXXXXX WiFi network
+- [ ] Can connect phone to STORY_XXXXXX AP
+- [ ] ESP SoftAP Prov app detects device
+- [ ] Can provision with PoP: abcd1234
 - [ ] WiFi credentials are accepted
 - [ ] Device connects to WiFi
-- [ ] LED shows correct status at each step
+- [ ] LED shows scrolling IP address in green
 - [ ] Device auto-connects on reboot
 - [ ] Serial output is clean and informative
 
@@ -107,10 +112,11 @@ Before moving to Phase 2, verify:
 ## 🔑 Key Features
 
 ### User Experience
-- Simple BLE provisioning via phone app
-- Visual feedback on LED matrix
-- No need for web interface or complex setup
+- Simple SoftAP provisioning via phone app
+- Visual feedback with scrolling text on LED matrix
+- Shows actual IP address when connected
 - Credentials saved permanently
+- Can also use web interface at 192.168.4.1 if needed
 
 ### Technical
 - Event-driven architecture
@@ -173,11 +179,12 @@ This implementation demonstrates:
 - Arduino: Easy LED matrix libraries
 - Best of both worlds
 
-### Why BLE Provisioning?
-- No need for SoftAP mode
-- Better user experience
+### Why SoftAP Provisioning?
+- Works on all phones (no BLE compatibility issues)
+- Simpler connection flow
 - Official ESP app support
-- More secure than web interface
+- More reliable than BLE on some devices
+- Can also use web interface at 192.168.4.1
 
 ### Why NeoMatrix Library?
 - Proven and stable

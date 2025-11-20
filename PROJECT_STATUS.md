@@ -12,22 +12,25 @@
 
 #### 2. LED Matrix Control
 - ✅ 8x8 WS2812 RGB LED matrix driver (GPIO 14)
-- ✅ Status indicator icons:
-  - Bluetooth icon (blue)
-  - WiFi icon (green)
-  - Checkmark (green)
-  - Error X (red)
-- ✅ Text scrolling capability (for future use)
+- ✅ Text scrolling with color control
+- ✅ Status messages:
+  - "No WiFi" (orange) - waiting for provisioning
+  - "Connecting..." (cyan) - attempting WiFi connection
+  - "IP: xxx.xxx.xxx.xxx" (green) - connected and showing IP
+  - "Retrying..." (orange) - connection failed, retrying
+  - "Error!" (orange) - provisioning error
 - ✅ Brightness control (set to 10 to prevent overheating)
 
 #### 3. WiFi Provisioning
-- ✅ BLE-based provisioning using ESP-IDF
-- ✅ Automatic device naming: `STORY_XXXXXX` (based on MAC)
-- ✅ Proof of Possession: `abcd1234`
+- ✅ SoftAP-based provisioning using ESP-IDF
+- ✅ Automatic AP naming: `STORY_XXXXXX` (based on MAC)
+- ✅ Security 1 with Proof of Possession: `abcd1234`
 - ✅ NVS storage for WiFi credentials
 - ✅ Auto-reconnect on subsequent boots
 - ✅ Event-driven status callbacks
-- ✅ Integration with LED matrix for visual feedback
+- ✅ Integration with LED matrix for scrolling text feedback
+- ✅ IP address retrieval from ESP-IDF (not Arduino WiFi library)
+- ✅ Detailed error logging with disconnect reason codes
 
 #### 4. Main Application
 - ✅ Initialization sequence
@@ -57,17 +60,19 @@
 
 ### Testing Status
 
-- ⏳ **Pending**: Physical device testing
-- ⏳ **Pending**: BLE provisioning app testing
-- ⏳ **Pending**: WiFi connection verification
-- ⏳ **Pending**: LED matrix visual verification
+- ✅ **Complete**: Physical device testing on 2 devices
+- ✅ **Complete**: SoftAP provisioning app testing
+- ✅ **Complete**: WiFi connection verification
+- ✅ **Complete**: LED matrix scrolling text verification
+- ✅ **Complete**: IP address display working correctly
 
 ### Known Limitations
 
 1. **Hardcoded PoP**: Currently using `abcd1234` - should be unique per device in production
-2. **No reset button**: Need to erase flash to re-provision
+2. **Reset in code**: Currently using `wifi_prov_reset()` in setup for testing - should be removed or made conditional
 3. **No timeout handling**: Provisioning waits indefinitely
-4. **Basic error handling**: Could be more robust
+4. **No factory reset button combo**: Need to erase flash or use code to re-provision
+5. **Open AP**: SoftAP has no password (security relies on PoP during provisioning)
 
 ## Phase 2: Audio Streaming (Next)
 
@@ -153,11 +158,12 @@
 
 ## Next Steps
 
-1. **Test Phase 1** on physical hardware
-2. **Verify** WiFi provisioning works reliably
-3. **Document** any issues or improvements needed
-4. **Plan** Phase 2 implementation details
-5. **Research** audio streaming libraries and codecs
+1. ✅ **Test Phase 1** on physical hardware - COMPLETE
+2. ✅ **Verify** WiFi provisioning works reliably - COMPLETE
+3. ✅ **Document** any issues or improvements needed - COMPLETE
+4. **Remove/disable** `wifi_prov_reset()` from production code
+5. **Plan** Phase 2 implementation details
+6. **Research** audio streaming libraries and codecs
 
 ## Questions to Resolve
 
@@ -169,6 +175,14 @@
 
 ---
 
-**Last Updated**: Initial implementation
-**Current Phase**: Phase 1 - Ready for testing
+**Last Updated**: Phase 1 complete and tested
+**Current Phase**: Phase 1 - ✅ COMPLETE
 **Next Milestone**: Phase 2 - Audio streaming
+
+### Phase 1 Achievements
+
+- Successfully implemented SoftAP provisioning (switched from BLE)
+- LED matrix displays scrolling status text with color coding
+- IP address displayed correctly from ESP-IDF network interface
+- Tested and working on 2 physical devices
+- Comprehensive documentation updated

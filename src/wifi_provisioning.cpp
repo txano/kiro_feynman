@@ -151,21 +151,28 @@ void wifi_prov_start()
 {
     ESP_LOGI(TAG, "=== wifi_prov_start() called ===");
     
-    // Configuration for provisioning manager using BLE
-    wifi_prov_mgr_config_t config = {
-        .scheme = wifi_prov_scheme_ble,
-        .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
-    };
+    // Check if already provisioned BEFORE initializing provisioning manager
+    // This way we can just start WiFi directly if credentials exist
+    wifi_config_t wifi_cfg;
+    esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg);
+    
+    bool has_credentials = false;
+    if (err == ESP_OK && strlen((char*)wifi_cfg.sta.ssid) > 0) {
+        has_credentials = true;
+        ESP_LOGI(TAG, "Found saved WiFi credentials for SSID: %s", wifi_cfg.sta.ssid);
+    }
+    
+    if (!has_credentials) {
+        ESP_LOGI(TAG, "No saved credentials found, starting provisioning");
+        
+        // Configuration for provisioning manager using BLE
+        wifi_prov_mgr_config_t config = {
+            .scheme = wifi_prov_scheme_ble,
+            .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
+        };
 
-    ESP_LOGI(TAG, "Initializing provisioning manager...");
-    ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
-
-    bool provisioned = false;
-    ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
-    ESP_LOGI(TAG, "Device provisioned status: %s", provisioned ? "YES" : "NO");
-
-    if (!provisioned) {
-        ESP_LOGI(TAG, "Starting NEW provisioning session");
+        ESP_LOGI(TAG, "Initializing provisioning manager...");
+        ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
 
         char service_name[12];
         get_device_service_name(service_name, sizeof(service_name));
@@ -186,7 +193,7 @@ void wifi_prov_start()
             0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
         };
         
-        esp_err_t err = wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
+        err = wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "Failed to set custom BLE UUID: %s", esp_err_to_name(err));
         }
@@ -204,10 +211,9 @@ void wifi_prov_start()
 
         if (status_cb) status_cb("AP_STARTED");
     } else {
-        ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA mode");
+        ESP_LOGI(TAG, "Already provisioned, connecting to WiFi...");
         
-        wifi_prov_mgr_deinit();
-        
+        // Don't use provisioning manager, just start WiFi directly
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
         ESP_ERROR_CHECK(esp_wifi_start());
         
@@ -228,6 +234,14 @@ bool wifi_prov_is_provisioned()
 
 void wifi_prov_reset()
 {
-    ESP_LOGI(TAG, "Resetting provisioning");
+    ESP_LOGI(TAG, "Resetting WiFi credentials...");
+    
+    // Clear WiFi configuration
+    wifi_config_t wifi_cfg = {};
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg);
+    
+    // Also try to reset via provisioning manager (if it was used)
     wifi_prov_mgr_reset_provisioning();
+    
+    ESP_LOGI(TAG, "WiFi credentials cleared");
 }

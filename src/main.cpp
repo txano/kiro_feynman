@@ -20,7 +20,7 @@ void wifi_status_callback(const char* status) {
     if (strcmp(status, "AP_STARTED") == 0) {
         wifi_connected = false;
         wifi_connecting = false;
-        strcpy(ip_display_text, "No WiFi");
+        strcpy(ip_display_text, "BLE Ready");
     } else if (strcmp(status, "AP_CONNECTED") == 0) {
         // Just log, don't block
     } else if (strcmp(status, "WIFI_CONNECTING") == 0) {

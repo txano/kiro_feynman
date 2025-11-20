@@ -2,26 +2,27 @@
 
 ## Summary
 
-Phase 1 was successfully completed with some key changes from the original plan. The device now uses **SoftAP provisioning** instead of BLE, and displays **scrolling text** on the LED matrix instead of static icons.
+Phase 1 was successfully completed. The device uses **BLE provisioning** (after initially implementing SoftAP), and displays **scrolling text** on the LED matrix instead of static icons. Credentials persist across power cycles, and a physical button reset feature was added.
 
 ## Major Changes
 
-### 1. Provisioning Method: BLE → SoftAP
+### 1. Provisioning Method: Initially SoftAP, Final: BLE
 
 **Original Plan**: BLE-based provisioning
-**Implemented**: SoftAP-based provisioning
+**First Implementation**: SoftAP-based provisioning
+**Final Implementation**: BLE-based provisioning ✅
 
-**Reasons for Change**:
-- More reliable across different phone models
-- No BLE compatibility issues
-- Simpler connection flow for users
-- Can also use web interface (192.168.4.1) as fallback
-- Better compatibility with ESP SoftAP Provisioning app
+**Why We Switched Back to BLE**:
+- More professional and modern approach
+- No need for users to switch WiFi networks
+- Better user experience
+- Lower power consumption
+- Standard for IoT devices
 
 **How It Works**:
-1. Device creates WiFi access point: `STORY_XXXXXX`
-2. User connects phone to this AP (open, no password)
-3. User opens ESP SoftAP Provisioning app
+1. Device advertises via BLE: `STORY_XXXXXX`
+2. User opens ESP BLE Provisioning app
+3. User selects device from list
 4. User enters PoP: `abcd1234`
 5. User selects home WiFi and enters password
 6. Device connects to home WiFi and displays IP address
@@ -32,11 +33,11 @@ Phase 1 was successfully completed with some key changes from the original plan.
 **Implemented**: Scrolling text with color coding
 
 **Status Messages**:
-- 🟠 Orange "No WiFi" - waiting for provisioning
+- 🟠 Orange "BLE Ready" - waiting for BLE provisioning
 - 🔵 Cyan "Connecting..." - attempting WiFi connection
 - 🟢 Green "IP: 192.168.1.54" - connected (shows actual IP)
 - 🟠 Orange "Retrying..." - connection failed, retrying
-- 🟠 Orange "Error!" - provisioning error
+- 🟠 Orange "RESET!" - resetting WiFi credentials
 
 **Benefits**:
 - More informative (shows actual IP address)
@@ -57,6 +58,38 @@ esp_netif_get_ip_info(netif, &ip_info);
 ```
 
 **Result**: IP address displays correctly on LED matrix
+
+### 4. Credential Persistence: Fixed
+
+**Issue Discovered**: Credentials didn't persist across power cycles
+
+**Root Cause**: Provisioning manager was being initialized and deinitialized even when credentials existed
+
+**Solution**: Check WiFi config directly before initializing provisioning manager:
+```cpp
+wifi_config_t wifi_cfg;
+esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg);
+if (strlen((char*)wifi_cfg.sta.ssid) > 0) {
+    // Has credentials, just start WiFi
+}
+```
+
+**Result**: Credentials now persist correctly in NVS across power cycles
+
+### 5. Physical Button Reset: Added
+
+**Feature Added**: Hold BOOT button for 5 seconds to reset WiFi credentials
+
+**Implementation**:
+- Monitor GPIO 0 (BOOT button)
+- Require 5-second hold to prevent accidental resets
+- Show "RESET!" on LED matrix
+- Clear WiFi config and restart device
+
+**Benefits**:
+- No need to reflash to reset credentials
+- User-friendly factory reset
+- Safe from accidental activation
 
 ## Technical Details
 

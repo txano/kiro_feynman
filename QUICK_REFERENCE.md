@@ -11,25 +11,26 @@
 | Display | Color | Meaning |
 |---------|-------|---------|
 | "INIT" | White | Device starting up |
-| "No WiFi" | 🟠 Orange | Waiting for provisioning |
+| "BLE Ready" | 🟠 Orange | Waiting for BLE provisioning |
 | "Connecting..." | 🔵 Cyan | Attempting WiFi connection |
 | "IP: xxx.xxx.xxx.xxx" | 🟢 Green | Connected successfully |
 | "Retrying..." | 🟠 Orange | Connection failed, retrying |
-| "Error!" | 🟠 Orange | Provisioning error |
+| "RESET!" | 🟠 Orange | Resetting WiFi credentials |
 
 ## Provisioning Steps
 
-1. **Power on device** → LED shows "No WiFi"
-2. **Connect phone** to `STORY_XXXXXX` WiFi (open, no password)
-3. **Open app**: ESP SoftAP Provisioning
-4. **Enter PoP**: `abcd1234`
-5. **Select WiFi** and enter password
-6. **Wait** → LED shows "Connecting..." then "IP: xxx.xxx.xxx.xxx"
+1. **Power on device** → LED shows "BLE Ready"
+2. **Enable Bluetooth** on phone
+3. **Open app**: ESP BLE Provisioning
+4. **Select device**: `STORY_XXXXXX`
+5. **Enter PoP**: `abcd1234`
+6. **Select WiFi** and enter password
+7. **Wait** → LED shows "Connecting..." then "IP: xxx.xxx.xxx.xxx"
 
 ## App Download
 
-**Android**: [ESP SoftAP Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provsoftap)  
-**iOS**: [ESP SoftAP Provisioning](https://apps.apple.com/app/esp-softap-provisioning/id1474040630)
+**Android**: [ESP BLE Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provble)  
+**iOS**: [ESP BLE Provisioning](https://apps.apple.com/app/esp-ble-provisioning/id1473590141)
 
 ## Common Commands
 
@@ -49,27 +50,32 @@ pio run --target clean && pio run --target upload
 
 ## Troubleshooting
 
-### Cannot find STORY_XXXXXX network
-- Check serial monitor for actual AP name
-- Device might already be provisioned (erase flash)
-- Reset device
+### Device not found in BLE app
+- Enable Bluetooth on phone
+- Check serial monitor for actual device name
+- Device should be within 10 meters
+- Device might already be provisioned
 
 ### WiFi connection fails (Error 202)
 - Wrong password
 - Check WiFi is 2.4GHz (not 5GHz)
 - Ensure WPA2 security
 
-### LED shows "Getting IP..." forever
+### Credentials don't persist
 - This was a bug, now fixed
-- Update to latest code
+- Credentials stored in NVS persist across reboots
 
 ### Need to re-provision
+
+**Method 1: Physical Button (Recommended)**
+- Hold BOOT button for 5 seconds
+- Device shows "RESET!" and restarts
+
+**Method 2: Erase Flash**
 ```bash
 pio run --target erase
 pio run --target upload
 ```
-
-Or enable `wifi_prov_reset()` in code temporarily
 
 ## GPIO Pinout
 
@@ -91,8 +97,8 @@ I (xxx) main: Story Device - Starting...
 I (xxx) main: Initializing LED matrix...
 I (xxx) main: Initializing WiFi provisioning...
 I (xxx) wifi_prov: Generated service name: STORY_A1B2C3
-I (xxx) wifi_prov: ✓ AP name: STORY_A1B2C3
-I (xxx) wifi_prov: ✓ Provisioning started successfully!
+I (xxx) wifi_prov: ✓ BLE device name: STORY_A1B2C3
+I (xxx) wifi_prov: ✓ Use ESP BLE Provisioning app to connect
 I (xxx) main: WiFi Status: AP_STARTED
 ```
 
@@ -110,7 +116,8 @@ I (xxx) main: IP Address updated: IP: 192.168.x.x
 ⚠️ **LED Brightness**: Set to 10 (max 255) to prevent overheating  
 ⚠️ **WiFi**: Only 2.4GHz supported (ESP32 limitation)  
 ⚠️ **Power**: Requires 5V, >1A supply  
-⚠️ **Testing Mode**: `wifi_prov_reset()` is enabled in code - remove for production
+⚠️ **Reset**: Hold BOOT button for 5 seconds to reset WiFi credentials  
+✅ **Credentials**: Persist across power cycles in NVS
 
 ## File Locations
 
@@ -147,6 +154,6 @@ I (xxx) main: IP Address updated: IP: 192.168.x.x
 
 ---
 
-**Last Updated**: Phase 1 Complete  
+**Last Updated**: Phase 1 Complete with BLE  
 **Version**: 1.0  
-**Status**: Production Ready (after removing test reset)
+**Status**: Production Ready

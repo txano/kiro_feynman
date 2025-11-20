@@ -12,9 +12,11 @@ An ESP32-S3 based storytelling device with LED matrix display and audio streamin
 ## Features
 
 ### Phase 1 (Current) ✅
-- [x] WiFi provisioning via SoftAP
+- [x] WiFi provisioning via BLE
 - [x] LED matrix status indicators with scrolling text
 - [x] Visual feedback during provisioning
+- [x] Physical button reset (hold BOOT for 5 seconds)
+- [x] Credentials persist across power cycles
 
 ### Phase 2 (Next)
 - [ ] Audio streaming via I2S
@@ -48,31 +50,35 @@ pio device monitor
 
 ## WiFi Provisioning
 
-### Using ESP SoftAP Provisioning App
+### Using ESP BLE Provisioning App
 
 1. Download the app:
-   - **Android**: [ESP SoftAP Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provsoftap)
-   - **iOS**: [ESP SoftAP Provisioning](https://apps.apple.com/app/esp-softap-provisioning/id1474040630)
+   - **Android**: [ESP BLE Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provble)
+   - **iOS**: [ESP BLE Provisioning](https://apps.apple.com/app/esp-ble-provisioning/id1473590141)
 
 2. Power on the device
-3. LED matrix will scroll "No WiFi" in orange
-4. Device creates a WiFi access point named `STORY_XXXXXX` (last 3 bytes of MAC address)
-5. Connect your phone to the `STORY_XXXXXX` WiFi network
-6. Open the ESP SoftAP Provisioning app
-7. Enter Proof of Possession: `abcd1234`
-8. Select your WiFi network and enter password
-9. LED matrix will show:
-   - "Connecting..." in cyan (attempting connection)
-   - "IP: xxx.xxx.xxx.xxx" in green (successfully connected)
-   - "Error!" or "Retrying..." in orange (if connection fails)
+3. LED matrix will scroll "BLE Ready" in orange
+4. Open the ESP BLE Provisioning app on your phone
+5. Enable Bluetooth on your phone
+6. Tap "Provision New Device"
+7. Select `STORY_XXXXXX` from the list (last 3 bytes of MAC address)
+8. Enter Proof of Possession: `abcd1234`
+9. Select your WiFi network and enter password
+10. LED matrix will show:
+    - "Connecting..." in cyan (attempting connection)
+    - "IP: xxx.xxx.xxx.xxx" in green (successfully connected)
+    - "Retrying..." in orange (if connection fails)
 
 ### LED Matrix Status Display
 
-- **Orange "No WiFi"**: Waiting for provisioning
+- **Orange "BLE Ready"**: Waiting for BLE provisioning
 - **Cyan "Connecting..."**: Attempting to connect to WiFi
 - **Green "IP: xxx.xxx.xxx.xxx"**: Successfully connected (scrolling IP address)
 - **Orange "Retrying..."**: Connection failed, retrying
-- **Orange "Error!"**: Provisioning error occurred
+
+### Reset WiFi Credentials
+
+Hold the **BOOT button** for 5 seconds to reset WiFi credentials. The device will show "RESET!" and restart. See [RESET_BUTTON_GUIDE.md](RESET_BUTTON_GUIDE.md) for details.
 
 ## Project Structure
 
@@ -104,24 +110,20 @@ pio device monitor
 
 ## Troubleshooting
 
-### Device not showing as WiFi access point
+### Device not showing in BLE app
+- Make sure Bluetooth is enabled on your phone
 - Check serial monitor for device name (STORY_XXXXXX)
-- Make sure device is not already provisioned (erase flash if needed)
-- Try resetting the device
-
-### Cannot connect to STORY_XXXXXX network
-- The network is open (no password required)
-- Make sure you're within range
-- Check serial monitor for errors
+- Device should be within 10 meters
+- Make sure device is not already provisioned
 
 ### WiFi connection fails (Auth Error 202)
 - Verify WiFi password is correct
 - Check if WiFi network is 2.4GHz (ESP32 doesn't support 5GHz)
 - Ensure WPA2 security (WPA3 not supported)
 
-### Device shows "Getting IP..." but never gets IP
-- This was a bug, now fixed - device gets IP from ESP-IDF directly
-- If still occurring, check router DHCP settings
+### Credentials don't persist after power cycle
+- This was a bug, now fixed
+- Credentials are stored in NVS and persist across reboots
 
 ### LED matrix not working
 - Verify GPIO 14 connection
@@ -129,13 +131,16 @@ pio device monitor
 - Brightness is set to 10 to prevent overheating
 
 ### Reset provisioning
-To clear saved WiFi credentials and start fresh:
+**Method 1: Physical Button (Recommended)**
+- Hold BOOT button for 5 seconds
+- Device will show "RESET!" and restart
+- See [RESET_BUTTON_GUIDE.md](RESET_BUTTON_GUIDE.md)
+
+**Method 2: Erase Flash**
 ```bash
 pio run --target erase
 pio run --target upload
 ```
-
-Or temporarily enable the reset in code (already in main.cpp for testing)
 
 ## Next Steps
 

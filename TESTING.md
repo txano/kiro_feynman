@@ -15,24 +15,24 @@
 
 3. **Watch the LED matrix**:
    - Should show "INIT" text briefly
-   - Then show blue Bluetooth icon (waiting for connection)
+   - Then show orange "BLE Ready" (scrolling)
 
 ## Provisioning Test
 
-### Method 1: ESP SoftAP Provisioning App (Recommended)
+### Method 1: ESP BLE Provisioning App (Recommended)
 
 1. Install app on your phone
-2. Connect phone to `STORY_XXXXXX` WiFi network (open, no password)
-3. Open ESP SoftAP Provisioning app
+2. Enable Bluetooth on your phone
+3. Open ESP BLE Provisioning app
 4. Tap "Provision New Device"
-5. Device should be detected automatically
+5. Select `STORY_XXXXXX` from the list
 6. Enter PoP: `abcd1234`
 7. Select your WiFi network
 8. Enter WiFi password
 9. Wait for connection
 
 **Expected LED sequence**:
-- Orange "No WiFi" (scrolling)
+- Orange "BLE Ready" (scrolling)
 - Cyan "Connecting..." (scrolling)
 - Green "IP: 192.168.x.x" (scrolling)
 
@@ -41,7 +41,7 @@
 Using `esp-idf/tools/esp_prov`:
 
 ```bash
-python esp_prov.py --transport softap --service_name STORY_XXXXXX --pop abcd1234 --ssid "YourWiFi" --passphrase "YourPassword"
+python esp_prov.py --transport ble --service_name STORY_XXXXXX --pop abcd1234 --ssid "YourWiFi" --passphrase "YourPassword"
 ```
 
 ## Expected Serial Output
@@ -54,11 +54,11 @@ I (xxx) main: Initializing LED matrix...
 I (xxx) main: Initializing WiFi provisioning...
 I (xxx) wifi_prov: WiFi provisioning initialized
 I (xxx) main: Starting WiFi provisioning...
-I (xxx) wifi_prov: Starting provisioning
-I (xxx) wifi_prov: Provisioning started with service name: STORY_XXXXXX
-I (xxx) wifi_prov: Scan QR code or use ESP BLE Prov app
-I (xxx) wifi_prov: Proof of Possession (PoP): abcd1234
-I (xxx) main: WiFi Status: BLE_SEARCHING
+I (xxx) wifi_prov: Generated service name: STORY_XXXXXX
+I (xxx) wifi_prov: ✓ BLE device name: STORY_XXXXXX
+I (xxx) wifi_prov: ✓ Use ESP BLE Provisioning app to connect
+I (xxx) wifi_prov: ✓ Enter PoP: abcd1234 when prompted
+I (xxx) main: WiFi Status: AP_STARTED
 ```
 
 After connecting via app:
@@ -74,18 +74,18 @@ I (xxx) main: IP Address updated: IP: 192.168.x.x
 
 ## Troubleshooting
 
-### Issue: Cannot find STORY_XXXXXX WiFi network
+### Issue: Device not found in BLE app
 **Check**:
 - Serial output shows "Provisioning started"
 - Device is not already provisioned
-- WiFi is enabled on phone
+- Bluetooth is enabled on phone
 - Phone is close to device (<10m)
 
 **Fix**:
-- Reset device (press reset button)
+- Reset device (press reset button or hold BOOT for 5 seconds)
 - Erase flash: `pio run --target erase`
-- Check serial for actual AP name
-- Make sure you're looking for WiFi networks, not Bluetooth devices
+- Check serial for actual device name
+- Restart Bluetooth on phone
 
 ### Issue: "Invalid PoP" error
 **Check**:
@@ -145,9 +145,11 @@ Or add a reset button in code (future enhancement).
 ## Next Phase Preparation
 
 Once WiFi provisioning works reliably:
-- [ ] Device connects to WiFi on first boot
-- [ ] Device auto-connects on subsequent boots
-- [ ] LED matrix shows correct status at each step
-- [ ] Serial output is clean and informative
+- [x] Device connects to WiFi on first boot
+- [x] Device auto-connects on subsequent boots
+- [x] LED matrix shows correct status at each step
+- [x] Serial output is clean and informative
+- [x] Credentials persist across power cycles
+- [x] Physical button reset works (BOOT button for 5 seconds)
 
-Ready to move to **Phase 2: Audio Streaming**!
+✅ **Phase 1 Complete!** Ready to move to **Phase 2: Audio Streaming**!

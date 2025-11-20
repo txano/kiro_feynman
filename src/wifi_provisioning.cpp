@@ -8,12 +8,12 @@
 #include <esp_event.h>
 #include <nvs_flash.h>
 #include <wifi_provisioning/manager.h>
-#include <wifi_provisioning/scheme_softap.h>
+#include <wifi_provisioning/scheme_ble.h>
 
 static const char *TAG = "wifi_prov";
 
 #define PROV_QR_VERSION         "v1"
-#define PROV_TRANSPORT_SOFTAP   "softap"
+#define PROV_TRANSPORT_BLE      "ble"
 #define QRCODE_BASE_URL         "https://espressif.github.io/esp-jumpstart/qrcode.html"
 
 // Event group
@@ -138,67 +138,82 @@ void wifi_prov_init(wifi_prov_status_cb_t status_callback)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
-    // Initialize Wi-Fi - create both STA and AP interfaces
+    // Initialize Wi-Fi - create STA interface only (BLE doesn't need AP)
     esp_netif_create_default_wifi_sta();
-    esp_netif_create_default_wifi_ap();  // Add AP interface for SoftAP provisioning
     
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    ESP_LOGI(TAG, "WiFi provisioning initialized (STA + AP interfaces created)");
+    ESP_LOGI(TAG, "WiFi provisioning initialized (STA interface created)");
 }
 
 void wifi_prov_start()
 {
     ESP_LOGI(TAG, "=== wifi_prov_start() called ===");
     
-    // Configuration for provisioning manager using SoftAP
-    wifi_prov_mgr_config_t config = {
-        .scheme = wifi_prov_scheme_softap,
-        .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
-    };
+    // Check if already provisioned BEFORE initializing provisioning manager
+    // This way we can just start WiFi directly if credentials exist
+    wifi_config_t wifi_cfg;
+    esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg);
+    
+    bool has_credentials = false;
+    if (err == ESP_OK && strlen((char*)wifi_cfg.sta.ssid) > 0) {
+        has_credentials = true;
+        ESP_LOGI(TAG, "Found saved WiFi credentials for SSID: %s", wifi_cfg.sta.ssid);
+    }
+    
+    if (!has_credentials) {
+        ESP_LOGI(TAG, "No saved credentials found, starting provisioning");
+        
+        // Configuration for provisioning manager using BLE
+        wifi_prov_mgr_config_t config = {
+            .scheme = wifi_prov_scheme_ble,
+            .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
+        };
 
-    ESP_LOGI(TAG, "Initializing provisioning manager...");
-    ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
-
-    bool provisioned = false;
-    ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
-    ESP_LOGI(TAG, "Device provisioned status: %s", provisioned ? "YES" : "NO");
-
-    if (!provisioned) {
-        ESP_LOGI(TAG, "Starting NEW provisioning session");
+        ESP_LOGI(TAG, "Initializing provisioning manager...");
+        ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
 
         char service_name[12];
         get_device_service_name(service_name, sizeof(service_name));
         ESP_LOGI(TAG, "Generated service name: %s", service_name);
 
-        // SoftAP provisioning configuration
-        // Using SECURITY_1 with PoP for ESP SoftAP Prov app compatibility
+        // BLE provisioning configuration
+        // Using SECURITY_1 with PoP for ESP BLE Prov app compatibility
         wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
         const char *pop = "abcd1234"; // Proof of possession - enter this in the app
-        const char *service_key = NULL; // Password for the SoftAP (NULL = open network)
+        const char *service_key = NULL; // Not used for BLE
 
         ESP_LOGI(TAG, "Security: SECURITY_1 (with PoP)");
         ESP_LOGI(TAG, "Proof of Possession (PoP): %s", pop ? pop : "NONE");
-        ESP_LOGI(TAG, "Service key (password): %s", service_key ? service_key : "NONE (open network)");
         
-        esp_err_t err = wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key);
+        // This sets a custom 128-bit UUID for the BLE service
+        uint8_t custom_service_uuid[] = {
+            0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf,
+            0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
+        };
+        
+        err = wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to set custom BLE UUID: %s", esp_err_to_name(err));
+        }
+        
+        err = wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to start provisioning: %s", esp_err_to_name(err));
             return;
         }
 
         ESP_LOGI(TAG, "✓ Provisioning started successfully!");
-        ESP_LOGI(TAG, "✓ AP name: %s", service_name);
-        ESP_LOGI(TAG, "✓ Connect to this AP and use ESP SoftAP Prov app");
-        ESP_LOGI(TAG, "✓ Or browse to http://192.168.4.1:80/prov/");
+        ESP_LOGI(TAG, "✓ BLE device name: %s", service_name);
+        ESP_LOGI(TAG, "✓ Use ESP BLE Provisioning app to connect");
+        ESP_LOGI(TAG, "✓ Enter PoP: %s when prompted", pop);
 
         if (status_cb) status_cb("AP_STARTED");
     } else {
-        ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA mode");
+        ESP_LOGI(TAG, "Already provisioned, connecting to WiFi...");
         
-        wifi_prov_mgr_deinit();
-        
+        // Don't use provisioning manager, just start WiFi directly
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
         ESP_ERROR_CHECK(esp_wifi_start());
         
@@ -219,6 +234,14 @@ bool wifi_prov_is_provisioned()
 
 void wifi_prov_reset()
 {
-    ESP_LOGI(TAG, "Resetting provisioning");
+    ESP_LOGI(TAG, "Resetting WiFi credentials...");
+    
+    // Clear WiFi configuration
+    wifi_config_t wifi_cfg = {};
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg);
+    
+    // Also try to reset via provisioning manager (if it was used)
     wifi_prov_mgr_reset_provisioning();
+    
+    ESP_LOGI(TAG, "WiFi credentials cleared");
 }

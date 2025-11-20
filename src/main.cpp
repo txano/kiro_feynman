@@ -2,6 +2,7 @@
 #include <string.h>
 #include "led_matrix.h"
 #include "wifi_provisioning.h"
+#include "audio.h"
 #include <esp_log.h>
 #include <esp_wifi.h>
 #include <esp_netif.h>
@@ -12,6 +13,8 @@ static bool wifi_connected = false;
 static bool wifi_connecting = false;
 static char ip_display_text[50] = "No WiFi";
 static unsigned long last_status_check = 0;
+static bool ble_ready_tone_played = false;
+static bool wifi_connected_tone_played = false;
 
 // Reset button configuration (BOOT button on ESP32-S3)
 #define RESET_BUTTON_PIN 0
@@ -27,6 +30,10 @@ void wifi_status_callback(const char* status) {
         wifi_connected = false;
         wifi_connecting = false;
         strcpy(ip_display_text, "BLE Ready");
+        if (!ble_ready_tone_played) {
+            audio_play_ble_ready_tone();
+            ble_ready_tone_played = true;
+        }
     } else if (strcmp(status, "AP_CONNECTED") == 0) {
         // Just log, don't block
     } else if (strcmp(status, "WIFI_CONNECTING") == 0) {
@@ -37,6 +44,10 @@ void wifi_status_callback(const char* status) {
         wifi_connected = true;
         wifi_connecting = false;
         strcpy(ip_display_text, "Getting IP...");
+        if (!wifi_connected_tone_played) {
+            audio_play_wifi_connected_tone();
+            wifi_connected_tone_played = true;
+        }
         // IP will be updated in loop
     } else if (strcmp(status, "ERROR") == 0) {
         // Only show error if we're not already connected
@@ -61,6 +72,10 @@ void setup() {
     led_matrix_init();
     led_matrix_show_text("INIT");
     delay(1000);
+    
+    // Initialize audio
+    ESP_LOGI(TAG, "Initializing audio...");
+    audio_init();
     
     // Initialize reset button (BOOT button)
     pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);

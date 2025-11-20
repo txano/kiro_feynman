@@ -2,24 +2,28 @@
 
 ## 🔥 Immediate (Phase 1 Testing)
 
-- [ ] Test on physical ESP32-S3-Matrix hardware
-- [ ] Verify LED matrix displays correctly
-- [ ] Test BLE provisioning with phone app
-- [ ] Verify WiFi connection and auto-reconnect
-- [ ] Document any issues or bugs found
+- [x] Test on physical ESP32-S3-Matrix hardware
+- [x] Verify LED matrix displays correctly
+- [x] Test BLE provisioning with phone app
+- [x] Verify WiFi connection and auto-reconnect
+- [x] Document any issues or bugs found
 - [ ] Test power consumption and heat generation
 
-## 📋 Phase 2: Audio Streaming
+## 📋 Phase 2: Audio Streaming (In Progress) 🚧
 
 ### Research & Planning
+- [x] Plan I2S pin configuration (GPIO 4, 5, 2)
+- [x] Test I2S driver with tone generation
 - [ ] Choose audio codec (MP3 vs AAC vs WAV)
 - [ ] Select audio streaming library (ESP32-audioI2S recommended)
 - [ ] Determine buffer sizes and sample rates
-- [ ] Plan I2S pin configuration (GPIO 33, 34, 35)
 - [ ] Find sample audio URLs for testing
 
 ### Implementation
-- [ ] Add I2S driver initialization
+- [x] Add I2S driver initialization
+- [x] Implement basic tone generation
+- [x] Add audio feedback for BLE ready (800 Hz tone)
+- [x] Add audio feedback for WiFi connected (1200 Hz tone)
 - [ ] Implement HTTP audio streaming client
 - [ ] Add audio decoder (MP3/AAC)
 - [ ] Implement buffer management

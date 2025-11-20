@@ -11,16 +11,21 @@ An ESP32-S3 based storytelling device with LED matrix display and audio streamin
 
 ## Features
 
-### Phase 1 (Current) ✅
+### Phase 1 ✅
 - [x] WiFi provisioning via BLE
 - [x] LED matrix status indicators with scrolling text
 - [x] Visual feedback during provisioning
 - [x] Physical button reset (hold BOOT for 5 seconds)
 - [x] Credentials persist across power cycles
 
-### Phase 2 (Next)
-- [ ] Audio streaming via I2S
-- [ ] Sample audio playback
+### Phase 2 (In Progress) 🚧
+- [x] I2S audio driver initialization
+- [x] Basic tone generation (test tones)
+- [x] Audio feedback for BLE ready (800 Hz)
+- [x] Audio feedback for WiFi connected (1200 Hz)
+- [ ] HTTP audio streaming
+- [ ] MP3/AAC decoding
+- [ ] Full audio playback
 
 ### Phase 3 (Future)
 - [ ] Button controls
@@ -84,9 +89,11 @@ Hold the **BOOT button** for 5 seconds to reset WiFi credentials. The device wil
 
 ```
 ├── include/
+│   ├── audio.h               # Audio playback control
 │   ├── led_matrix.h          # LED matrix control
 │   └── wifi_provisioning.h   # WiFi provisioning
 ├── src/
+│   ├── audio.cpp             # I2S audio implementation
 │   ├── main.cpp              # Main application
 │   ├── led_matrix.cpp        # LED matrix implementation
 │   └── wifi_provisioning.cpp # WiFi provisioning implementation
@@ -100,13 +107,12 @@ Hold the **BOOT button** for 5 seconds to reset WiFi credentials. The device wil
 | Function | GPIO | Notes |
 |----------|------|-------|
 | LED Matrix | 14 | WS2812 data line |
-| I2S BCLK | 33 | Audio bit clock (future) |
-| I2S LRCLK | 34 | Audio L/R clock (future) |
-| I2S DOUT | 35 | Audio data out (future) |
+| I2S BCLK | 4 | Audio bit clock |
+| I2S LRCLK | 5 | Audio L/R clock |
+| I2S DOUT | 2 | Audio data out |
 | Button 1 | 1 | Story select (future) |
-| Button 2 | 2 | Play/Pause (future) |
 | Button 3 | 3 | Next/Previous (future) |
-| Potentiometer | 4 | Volume control ADC (future) |
+| Potentiometer | TBD | Volume control ADC (future) |
 
 ## Troubleshooting
 

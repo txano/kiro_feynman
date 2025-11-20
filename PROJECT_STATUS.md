@@ -42,9 +42,11 @@
 
 ```
 ├── include/
+│   ├── audio.h                   # Audio playback API
 │   ├── led_matrix.h              # LED matrix API
 │   └── wifi_provisioning.h       # WiFi provisioning API
 ├── src/
+│   ├── audio.cpp                 # I2S audio implementation
 │   ├── main.cpp                  # Main application
 │   ├── led_matrix.cpp            # LED matrix implementation
 │   └── wifi_provisioning.cpp     # WiFi provisioning implementation
@@ -74,14 +76,18 @@
 4. **No factory reset button combo**: Need to erase flash or use code to re-provision
 5. **Open AP**: SoftAP has no password (security relies on PoP during provisioning)
 
-## Phase 2: Audio Streaming (Next)
+## Phase 2: Audio Streaming (In Progress) 🚧
 
-### Planned Features
+### Completed Features
 
 #### 1. I2S Audio Output
-- [ ] I2S driver initialization (GPIO 33, 34, 35)
-- [ ] 3W Class D amplifier integration
-- [ ] Audio buffer management
+- ✅ I2S driver initialization (GPIO 4, 5, 2)
+- ✅ 3W Class D amplifier integration
+- ✅ Basic tone generation (sine wave)
+- ✅ Audio feedback for BLE ready (800 Hz, 200ms)
+- ✅ Audio feedback for WiFi connected (1200 Hz, 300ms)
+
+### In Progress
 
 #### 2. HTTP Audio Streaming
 - [ ] HTTP client for audio streaming
@@ -148,13 +154,12 @@
 | Function | GPIO | Status |
 |----------|------|--------|
 | LED Matrix Data | 14 | ✅ Implemented |
-| I2S BCLK | 33 | 📋 Planned |
-| I2S LRCLK | 34 | 📋 Planned |
-| I2S DOUT | 35 | 📋 Planned |
+| I2S BCLK | 4 | ✅ Implemented |
+| I2S LRCLK | 5 | ✅ Implemented |
+| I2S DOUT | 2 | ✅ Implemented |
 | Button 1 (Select) | 1 | 📋 Planned |
-| Button 2 (Play/Pause) | 2 | 📋 Planned |
 | Button 3 (Next/Prev) | 3 | 📋 Planned |
-| Potentiometer (Volume) | 4 | 📋 Planned |
+| Potentiometer (Volume) | TBD | 📋 Planned |
 
 ## Next Steps
 
@@ -175,14 +180,23 @@
 
 ---
 
-**Last Updated**: Phase 1 complete and tested
-**Current Phase**: Phase 1 - ✅ COMPLETE
-**Next Milestone**: Phase 2 - Audio streaming
+**Last Updated**: Phase 2 started - I2S audio working
+**Current Phase**: Phase 2 - 🚧 IN PROGRESS
+**Next Milestone**: HTTP audio streaming and MP3 decoding
 
 ### Phase 1 Achievements
 
-- Successfully implemented SoftAP provisioning (switched from BLE)
+- Successfully implemented BLE provisioning
 - LED matrix displays scrolling status text with color coding
 - IP address displayed correctly from ESP-IDF network interface
-- Tested and working on 2 physical devices
+- Physical button reset (hold BOOT for 5 seconds)
+- Tested and working on physical devices
 - Comprehensive documentation updated
+
+### Phase 2 Progress
+
+- I2S audio driver initialized (GPIO 4, 5, 2)
+- Basic tone generation working
+- Audio feedback for BLE ready (800 Hz tone)
+- Audio feedback for WiFi connected (1200 Hz tone)
+- Tested with MAX98357A amplifier and speaker

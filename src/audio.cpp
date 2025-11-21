@@ -92,8 +92,8 @@ void audio_task(void* parameter) {
                             i2s_set_sample_rates(I2S_NUM, sample_rate);
                         }
                         
-                        // Play audio with optimal buffer size and frequent yields
-                        const size_t buffer_size = 512;  // Smaller buffer = more frequent yields
+                        // Play audio
+                        const size_t buffer_size = 512;  // Smaller buffer for more responsive task
                         uint8_t* buffer = (uint8_t*)malloc(buffer_size);
                         if (buffer) {
                             size_t total_read = 0;
@@ -110,18 +110,17 @@ void audio_task(void* parameter) {
                                         for (size_t i = 0; i < sample_count; i++) {
                                             samples[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;
                                         }
-                                        // Non-blocking write with short timeout
-                                        i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, 10 / portTICK_PERIOD_MS);
+                                        i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, 100 / portTICK_PERIOD_MS);
                                     } else {
-                                        i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, 10 / portTICK_PERIOD_MS);
+                                        i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, 100 / portTICK_PERIOD_MS);
                                     }
                                     total_read += bytes_read;
-                                    
-                                    // Yield after every chunk to give LED matrix CPU time
-                                    taskYIELD();
                                 } else {
                                     break;
                                 }
+                                
+                                // Yield to other tasks
+                                vTaskDelay(1);
                             }
                             
                             free(buffer);
@@ -173,8 +172,8 @@ void audio_init() {
         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = I2S_COMM_FORMAT_STAND_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 8,   // Back to original
-        .dma_buf_len = 64,    // Back to original
+        .dma_buf_count = 8,
+        .dma_buf_len = 64,
         .use_apll = false,
         .tx_desc_auto_clear = true,
         .fixed_mclk = 0
@@ -201,17 +200,17 @@ void audio_init() {
         ESP_LOGE(TAG, "LittleFS mount failed");
     }
     
-    // Create audio playback task with lower priority than main loop
+    // Create audio playback task
     xTaskCreatePinnedToCore(
         audio_task,
         "audio_task",
         8192,  // Stack size
         NULL,
-        0,     // Priority 0 (lower than main loop which is 1)
+        1,     // Priority
         &audio_task_handle,
-        0      // Core 0 (separate from main loop on Core 1)
+        0      // Core 0
     );
-    ESP_LOGI(TAG, "Audio task created on Core 0 with priority 0");
+    ESP_LOGI(TAG, "Audio task created");
 }
 
 void audio_play_tone(uint16_t frequency_hz, uint32_t duration_ms) {

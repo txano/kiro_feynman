@@ -9,6 +9,142 @@
 static const char *TAG = "audio";
 static bool littlefs_mounted = false;
 
+// I2S configuration
+#define I2S_NUM         I2S_NUM_0
+#define I2S_BCK_IO      4
+#define I2S_WS_IO       5
+#define I2S_DO_IO       2
+#define SAMPLE_RATE     44100
+#define BITS_PER_SAMPLE 16
+#define AMPLITUDE       10000  // Volume level (max 32767 for 16-bit)
+
+// Background audio playback
+static TaskHandle_t audio_task_handle = NULL;
+static bool is_playing = false;
+static char current_file[64] = {0};
+
+// Audio task function
+void audio_task(void* parameter) {
+    while (true) {
+        if (is_playing && strlen(current_file) > 0) {
+            // Play the file (blocking within this task)
+            File file = LittleFS.open(current_file, "r");
+            if (file) {
+                // Read RIFF header
+                char riff[4];
+                uint32_t file_size;
+                char wave[4];
+                
+                file.read((uint8_t*)riff, 4);
+                file.read((uint8_t*)&file_size, 4);
+                file.read((uint8_t*)wave, 4);
+                
+                if (strncmp(riff, "RIFF", 4) == 0 && strncmp(wave, "WAVE", 4) == 0) {
+                    // Find fmt chunk
+                    uint16_t audio_format = 0;
+                    uint16_t num_channels = 0;
+                    uint32_t sample_rate = 0;
+                    uint16_t bits_per_sample = 0;
+                    
+                    while (file.available()) {
+                        char chunk_id[4];
+                        uint32_t chunk_size;
+                        
+                        if (file.read((uint8_t*)chunk_id, 4) != 4) break;
+                        if (file.read((uint8_t*)&chunk_size, 4) != 4) break;
+                        
+                        if (strncmp(chunk_id, "fmt ", 4) == 0) {
+                            file.read((uint8_t*)&audio_format, 2);
+                            file.read((uint8_t*)&num_channels, 2);
+                            file.read((uint8_t*)&sample_rate, 4);
+                            file.seek(file.position() + 6);
+                            file.read((uint8_t*)&bits_per_sample, 2);
+                            
+                            if (chunk_size > 16) {
+                                file.seek(file.position() + (chunk_size - 16));
+                            }
+                            break;
+                        } else {
+                            file.seek(file.position() + chunk_size);
+                        }
+                    }
+                    
+                    // Find data chunk
+                    uint32_t data_size = 0;
+                    while (file.available()) {
+                        char chunk_id[4];
+                        uint32_t chunk_size;
+                        
+                        if (file.read((uint8_t*)chunk_id, 4) != 4) break;
+                        if (file.read((uint8_t*)&chunk_size, 4) != 4) break;
+                        
+                        if (strncmp(chunk_id, "data", 4) == 0) {
+                            data_size = chunk_size;
+                            break;
+                        } else {
+                            file.seek(file.position() + chunk_size);
+                        }
+                    }
+                    
+                    if (data_size > 0 && audio_format == 1) {
+                        // Update sample rate
+                        if (sample_rate != SAMPLE_RATE) {
+                            i2s_set_sample_rates(I2S_NUM, sample_rate);
+                        }
+                        
+                        // Play audio
+                        const size_t buffer_size = 512;  // Smaller buffer for more responsive task
+                        uint8_t* buffer = (uint8_t*)malloc(buffer_size);
+                        if (buffer) {
+                            size_t total_read = 0;
+                            size_t bytes_written = 0;
+                            
+                            while (file.available() && total_read < data_size && is_playing) {
+                                size_t to_read = min(buffer_size, data_size - total_read);
+                                size_t bytes_read = file.read(buffer, to_read);
+                                
+                                if (bytes_read > 0) {
+                                    if (num_channels == 2 && bits_per_sample == 16) {
+                                        int16_t* samples = (int16_t*)buffer;
+                                        size_t sample_count = bytes_read / 4;
+                                        for (size_t i = 0; i < sample_count; i++) {
+                                            samples[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;
+                                        }
+                                        i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, 100 / portTICK_PERIOD_MS);
+                                    } else {
+                                        i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, 100 / portTICK_PERIOD_MS);
+                                    }
+                                    total_read += bytes_read;
+                                } else {
+                                    break;
+                                }
+                                
+                                // Yield to other tasks
+                                vTaskDelay(1);
+                            }
+                            
+                            free(buffer);
+                        }
+                        
+                        // Restore sample rate
+                        if (sample_rate != SAMPLE_RATE) {
+                            i2s_set_sample_rates(I2S_NUM, SAMPLE_RATE);
+                        }
+                    }
+                }
+                
+                file.close();
+            }
+            
+            // Done playing
+            is_playing = false;
+            current_file[0] = '\0';
+        }
+        
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
 // WAV file header structure
 typedef struct {
     char riff[4];           // "RIFF"
@@ -25,15 +161,6 @@ typedef struct {
     char data[4];           // "data"
     uint32_t data_size;     // Data size
 } wav_header_t;
-
-// I2S configuration
-#define I2S_NUM         I2S_NUM_0
-#define I2S_BCK_IO      4
-#define I2S_WS_IO       5
-#define I2S_DO_IO       2
-#define SAMPLE_RATE     44100
-#define BITS_PER_SAMPLE 16
-#define AMPLITUDE       10000  // Volume level (max 32767 for 16-bit)
 
 void audio_init() {
     ESP_LOGI(TAG, "Initializing I2S audio on GPIO %d (DIN)", I2S_DO_IO);
@@ -72,6 +199,18 @@ void audio_init() {
     } else {
         ESP_LOGE(TAG, "LittleFS mount failed");
     }
+    
+    // Create audio playback task
+    xTaskCreatePinnedToCore(
+        audio_task,
+        "audio_task",
+        8192,  // Stack size
+        NULL,
+        1,     // Priority
+        &audio_task_handle,
+        0      // Core 0
+    );
+    ESP_LOGI(TAG, "Audio task created");
 }
 
 void audio_play_tone(uint16_t frequency_hz, uint32_t duration_ms) {
@@ -196,80 +335,18 @@ bool audio_play_wav_file(const char* filename) {
         return false;
     }
     
-    ESP_LOGI(TAG, "Playing WAV file: %s", filename);
-    
-    File file = LittleFS.open(filename, "r");
-    if (!file) {
-        ESP_LOGE(TAG, "Failed to open file: %s", filename);
+    if (is_playing) {
+        ESP_LOGW(TAG, "Already playing audio");
         return false;
     }
     
-    // Read WAV header
-    wav_header_t header;
-    if (file.read((uint8_t*)&header, sizeof(wav_header_t)) != sizeof(wav_header_t)) {
-        ESP_LOGE(TAG, "Failed to read WAV header");
-        file.close();
-        return false;
-    }
+    ESP_LOGI(TAG, "Queueing WAV file: %s", filename);
     
-    // Validate WAV header
-    if (strncmp(header.riff, "RIFF", 4) != 0 || strncmp(header.wave, "WAVE", 4) != 0) {
-        ESP_LOGE(TAG, "Invalid WAV file");
-        file.close();
-        return false;
-    }
+    // Set the file to play
+    strncpy(current_file, filename, sizeof(current_file) - 1);
+    current_file[sizeof(current_file) - 1] = '\0';
+    is_playing = true;
     
-    ESP_LOGI(TAG, "WAV: %d Hz, %d channels, %d bits, %d bytes", 
-             header.sample_rate, header.num_channels, header.bits_per_sample, header.data_size);
-    
-    // Update I2S sample rate if needed
-    if (header.sample_rate != SAMPLE_RATE) {
-        i2s_set_sample_rates(I2S_NUM, header.sample_rate);
-    }
-    
-    // Play audio data
-    const size_t buffer_size = 1024;
-    uint8_t* buffer = (uint8_t*)malloc(buffer_size);
-    if (!buffer) {
-        ESP_LOGE(TAG, "Failed to allocate buffer");
-        file.close();
-        return false;
-    }
-    
-    size_t total_read = 0;
-    size_t bytes_written = 0;
-    
-    while (file.available() && total_read < header.data_size) {
-        size_t to_read = min(buffer_size, header.data_size - total_read);
-        size_t bytes_read = file.read(buffer, to_read);
-        
-        if (bytes_read > 0) {
-            // Convert stereo to mono if needed
-            if (header.num_channels == 2 && header.bits_per_sample == 16) {
-                int16_t* samples = (int16_t*)buffer;
-                size_t sample_count = bytes_read / 4;  // 4 bytes per stereo sample
-                for (size_t i = 0; i < sample_count; i++) {
-                    samples[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;  // Average L+R
-                }
-                i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, portMAX_DELAY);
-            } else {
-                i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, portMAX_DELAY);
-            }
-            total_read += bytes_read;
-        } else {
-            break;
-        }
-    }
-    
-    free(buffer);
-    file.close();
-    
-    // Restore original sample rate
-    if (header.sample_rate != SAMPLE_RATE) {
-        i2s_set_sample_rates(I2S_NUM, SAMPLE_RATE);
-    }
-    
-    ESP_LOGI(TAG, "WAV playback complete: %d bytes", total_read);
     return true;
 }
 
@@ -283,5 +360,5 @@ void audio_loop() {
 }
 
 bool audio_is_playing() {
-    return false;  // Tones are blocking, so always return false
+    return is_playing;
 }

@@ -190,9 +190,12 @@ void loop() {
     // Play ready sound every 5 seconds when BLE is ready and not connected
     if (ble_ready && !wifi_connected && (now - last_ready_sound >= READY_SOUND_INTERVAL)) {
         ESP_LOGI(TAG, "Playing ready sound...");
-        // Try to play WAV from URL (you can host a test file)
-        // For now, just play tone
-        audio_play_ble_ready_tone();
+        // Try to play WAV file from LittleFS
+        if (!audio_play_wav_file("/ready.wav")) {
+            // Fallback to tone if WAV fails
+            ESP_LOGW(TAG, "WAV playback failed, using tone");
+            audio_play_ble_ready_tone();
+        }
         last_ready_sound = now;
     }
     

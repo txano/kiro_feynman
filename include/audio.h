@@ -14,6 +14,7 @@ void audio_play_ble_ready_tone();
 void audio_play_wifi_connected_tone();
 
 // Audio file playback functions
+bool audio_play_wav_file(const char* filename);  // Play WAV from LittleFS
 bool audio_play_wav_url(const char* url);  // Stream WAV from HTTP URL
 void audio_play_mp3(const char* filename);
 void audio_loop();  // Call in main loop to handle audio playback

@@ -52,7 +52,11 @@ void wifi_status_callback(const char* status) {
         ble_ready = false;
         strcpy(ip_display_text, "Getting IP...");
         if (!wifi_connected_tone_played) {
-            audio_play_wifi_connected_tone();
+            // Play connected.wav instead of tone
+            if (!audio_play_wav_file("/connected.wav")) {
+                // Fallback to tone if WAV fails
+                audio_play_wifi_connected_tone();
+            }
             wifi_connected_tone_played = true;
         }
         // IP will be updated in loop

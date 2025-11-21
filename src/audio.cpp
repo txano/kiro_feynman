@@ -75,3 +75,16 @@ void audio_play_ble_ready_tone() {
 void audio_play_wifi_connected_tone() {
     audio_play_tone(1200, 300);  // 1200 Hz for 300ms
 }
+
+void audio_play_mp3(const char* filename) {
+    ESP_LOGW(TAG, "MP3 playback not yet implemented - playing tone instead");
+    audio_play_tone(1000, 500);
+}
+
+void audio_loop() {
+    // No-op for tone-based audio
+}
+
+bool audio_is_playing() {
+    return false;  // Tones are blocking, so always return false
+}

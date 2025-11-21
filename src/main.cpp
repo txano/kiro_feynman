@@ -11,10 +11,14 @@
 static const char *TAG = "main";
 static bool wifi_connected = false;
 static bool wifi_connecting = false;
+static bool ble_ready = false;
 static char ip_display_text[50] = "No WiFi";
 static unsigned long last_status_check = 0;
+static unsigned long last_ready_sound = 0;
 static bool ble_ready_tone_played = false;
 static bool wifi_connected_tone_played = false;
+
+#define READY_SOUND_INTERVAL 5000  // Play ready.mp3 every 5 seconds
 
 // Reset button configuration (BOOT button on ESP32-S3)
 #define RESET_BUTTON_PIN 0
@@ -29,10 +33,12 @@ void wifi_status_callback(const char* status) {
     if (strcmp(status, "AP_STARTED") == 0) {
         wifi_connected = false;
         wifi_connecting = false;
+        ble_ready = true;
         strcpy(ip_display_text, "BLE Ready");
         if (!ble_ready_tone_played) {
             audio_play_ble_ready_tone();
             ble_ready_tone_played = true;
+            last_ready_sound = millis();
         }
     } else if (strcmp(status, "AP_CONNECTED") == 0) {
         // Just log, don't block
@@ -43,6 +49,7 @@ void wifi_status_callback(const char* status) {
     } else if (strcmp(status, "WIFI_CONNECTED") == 0) {
         wifi_connected = true;
         wifi_connecting = false;
+        ble_ready = false;
         strcpy(ip_display_text, "Getting IP...");
         if (!wifi_connected_tone_played) {
             audio_play_wifi_connected_tone();
@@ -176,5 +183,16 @@ void loop() {
     }
     
     led_matrix_scroll_text(ip_display_text, color);
+    
+    // Handle audio playback
+    audio_loop();
+    
+    // Play ready tone every 5 seconds when BLE is ready and not connected
+    if (ble_ready && !wifi_connected && (now - last_ready_sound >= READY_SOUND_INTERVAL)) {
+        ESP_LOGI(TAG, "Playing ready tone...");
+        audio_play_ble_ready_tone();
+        last_ready_sound = now;
+    }
+    
     delay(10); // Small delay to prevent tight loop
 }

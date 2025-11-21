@@ -92,13 +92,12 @@ void audio_task(void* parameter) {
                             i2s_set_sample_rates(I2S_NUM, sample_rate);
                         }
                         
-                        // Play audio with larger buffer to reduce file system access
-                        const size_t buffer_size = 2048;  // Larger buffer = less frequent reads
+                        // Play audio with optimal buffer size and frequent yields
+                        const size_t buffer_size = 512;  // Smaller buffer = more frequent yields
                         uint8_t* buffer = (uint8_t*)malloc(buffer_size);
                         if (buffer) {
                             size_t total_read = 0;
                             size_t bytes_written = 0;
-                            uint8_t chunk_count = 0;
                             
                             while (file.available() && total_read < data_size && is_playing) {
                                 size_t to_read = min(buffer_size, data_size - total_read);
@@ -111,18 +110,15 @@ void audio_task(void* parameter) {
                                         for (size_t i = 0; i < sample_count; i++) {
                                             samples[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;
                                         }
-                                        i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, 50 / portTICK_PERIOD_MS);
+                                        // Non-blocking write with short timeout
+                                        i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, 10 / portTICK_PERIOD_MS);
                                     } else {
-                                        i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, 50 / portTICK_PERIOD_MS);
+                                        i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, 10 / portTICK_PERIOD_MS);
                                     }
                                     total_read += bytes_read;
                                     
-                                    // Yield every 4 chunks to give LED matrix more CPU time
-                                    chunk_count++;
-                                    if (chunk_count >= 4) {
-                                        vTaskDelay(2 / portTICK_PERIOD_MS);
-                                        chunk_count = 0;
-                                    }
+                                    // Yield after every chunk to give LED matrix CPU time
+                                    taskYIELD();
                                 } else {
                                     break;
                                 }
@@ -177,8 +173,8 @@ void audio_init() {
         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = I2S_COMM_FORMAT_STAND_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 16,  // More DMA buffers for smoother playback
-        .dma_buf_len = 128,   // Larger DMA buffer
+        .dma_buf_count = 8,   // Back to original
+        .dma_buf_len = 64,    // Back to original
         .use_apll = false,
         .tx_desc_auto_clear = true,
         .fixed_mclk = 0

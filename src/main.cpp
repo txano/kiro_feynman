@@ -187,9 +187,11 @@ void loop() {
     // Handle audio playback
     audio_loop();
     
-    // Play ready tone every 5 seconds when BLE is ready and not connected
+    // Play ready sound every 5 seconds when BLE is ready and not connected
     if (ble_ready && !wifi_connected && (now - last_ready_sound >= READY_SOUND_INTERVAL)) {
-        ESP_LOGI(TAG, "Playing ready tone...");
+        ESP_LOGI(TAG, "Playing ready sound...");
+        // Try to play WAV from URL (you can host a test file)
+        // For now, just play tone
         audio_play_ble_ready_tone();
         last_ready_sound = now;
     }

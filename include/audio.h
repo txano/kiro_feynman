@@ -13,7 +13,8 @@ void audio_play_tone(uint16_t frequency_hz, uint32_t duration_ms);
 void audio_play_ble_ready_tone();
 void audio_play_wifi_connected_tone();
 
-// MP3 playback functions
+// Audio file playback functions
+bool audio_play_wav_url(const char* url);  // Stream WAV from HTTP URL
 void audio_play_mp3(const char* filename);
 void audio_loop();  // Call in main loop to handle audio playback
 bool audio_is_playing();

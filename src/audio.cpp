@@ -2,8 +2,27 @@
 #include <driver/i2s.h>
 #include <esp_log.h>
 #include <math.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
 
 static const char *TAG = "audio";
+
+// WAV file header structure
+typedef struct {
+    char riff[4];           // "RIFF"
+    uint32_t file_size;     // File size - 8
+    char wave[4];           // "WAVE"
+    char fmt[4];            // "fmt "
+    uint32_t fmt_size;      // Format chunk size
+    uint16_t audio_format;  // Audio format (1 = PCM)
+    uint16_t num_channels;  // Number of channels
+    uint32_t sample_rate;   // Sample rate
+    uint32_t byte_rate;     // Byte rate
+    uint16_t block_align;   // Block align
+    uint16_t bits_per_sample; // Bits per sample
+    char data[4];           // "data"
+    uint32_t data_size;     // Data size
+} wav_header_t;
 
 // I2S configuration
 #define I2S_NUM         I2S_NUM_0
@@ -74,6 +93,90 @@ void audio_play_ble_ready_tone() {
 
 void audio_play_wifi_connected_tone() {
     audio_play_tone(1200, 300);  // 1200 Hz for 300ms
+}
+
+bool audio_play_wav_url(const char* url) {
+    ESP_LOGI(TAG, "Streaming WAV from: %s", url);
+    
+    HTTPClient http;
+    http.begin(url);
+    
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK) {
+        ESP_LOGE(TAG, "HTTP GET failed: %d", httpCode);
+        http.end();
+        return false;
+    }
+    
+    WiFiClient* stream = http.getStreamPtr();
+    
+    // Read WAV header
+    wav_header_t header;
+    if (stream->readBytes((char*)&header, sizeof(wav_header_t)) != sizeof(wav_header_t)) {
+        ESP_LOGE(TAG, "Failed to read WAV header");
+        http.end();
+        return false;
+    }
+    
+    // Validate WAV header
+    if (strncmp(header.riff, "RIFF", 4) != 0 || strncmp(header.wave, "WAVE", 4) != 0) {
+        ESP_LOGE(TAG, "Invalid WAV file");
+        http.end();
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "WAV: %d Hz, %d channels, %d bits", 
+             header.sample_rate, header.num_channels, header.bits_per_sample);
+    
+    // Update I2S sample rate if needed
+    if (header.sample_rate != SAMPLE_RATE) {
+        i2s_set_sample_rates(I2S_NUM, header.sample_rate);
+    }
+    
+    // Stream audio data
+    const size_t buffer_size = 1024;
+    uint8_t* buffer = (uint8_t*)malloc(buffer_size);
+    if (!buffer) {
+        ESP_LOGE(TAG, "Failed to allocate buffer");
+        http.end();
+        return false;
+    }
+    
+    size_t total_read = 0;
+    size_t bytes_written = 0;
+    
+    while (stream->available() && total_read < header.data_size) {
+        size_t to_read = min(buffer_size, header.data_size - total_read);
+        size_t bytes_read = stream->readBytes(buffer, to_read);
+        
+        if (bytes_read > 0) {
+            // Convert stereo to mono if needed
+            if (header.num_channels == 2 && header.bits_per_sample == 16) {
+                int16_t* samples = (int16_t*)buffer;
+                size_t sample_count = bytes_read / 4;  // 4 bytes per stereo sample
+                for (size_t i = 0; i < sample_count; i++) {
+                    samples[i] = (samples[i * 2] + samples[i * 2 + 1]) / 2;  // Average L+R
+                }
+                i2s_write(I2S_NUM, buffer, sample_count * 2, &bytes_written, portMAX_DELAY);
+            } else {
+                i2s_write(I2S_NUM, buffer, bytes_read, &bytes_written, portMAX_DELAY);
+            }
+            total_read += bytes_read;
+        } else {
+            break;
+        }
+    }
+    
+    free(buffer);
+    http.end();
+    
+    // Restore original sample rate
+    if (header.sample_rate != SAMPLE_RATE) {
+        i2s_set_sample_rates(I2S_NUM, SAMPLE_RATE);
+    }
+    
+    ESP_LOGI(TAG, "WAV playback complete: %d bytes", total_read);
+    return true;
 }
 
 void audio_play_mp3(const char* filename) {

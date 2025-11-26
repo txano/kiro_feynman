@@ -33,12 +33,25 @@ static AudioOutputI2S *out = NULL;
 
 // Audio playback state
 static bool is_playing = false;
-static unsigned long playback_start_time = 0;
+static bool is_paused = false;
 static float current_volume = 1.0;  // 100% by default
-static bool volume_fade_enabled = false;
-static float fade_start_volume = 0.2;  // 20%
-static float fade_end_volume = 0.5;    // 50%
-static unsigned long fade_duration = 10000;  // 10 seconds
+
+// Download state machine for non-blocking downloads
+typedef enum {
+    DOWNLOAD_IDLE,
+    DOWNLOAD_CONNECTING,
+    DOWNLOAD_IN_PROGRESS,
+    DOWNLOAD_COMPLETE,
+    DOWNLOAD_FAILED
+} download_state_t;
+
+static download_state_t download_state = DOWNLOAD_IDLE;
+static WiFiClientSecure *download_client = NULL;
+static HTTPClient *download_http = NULL;
+static File download_file;
+static int download_total_bytes = 0;
+static int download_received_bytes = 0;
+static String download_url = "";
 
 
 
@@ -95,16 +108,8 @@ bool audio_play_mp3_file(const char* filename) {
     
     if (mp3->begin(file_source, out)) {
         is_playing = true;
-        
-        // Start fade timer if fade is enabled
-        if (volume_fade_enabled) {
-            playback_start_time = millis();
-            ESP_LOGI(TAG, "MP3 playback started with volume fade");
-        } else {
-            playback_start_time = 0;
-            ESP_LOGI(TAG, "MP3 playback started");
-        }
-        
+        is_paused = false;
+        ESP_LOGI(TAG, "MP3 playback started");
         return true;
     } else {
         ESP_LOGE(TAG, "Failed to start MP3 playback");
@@ -116,106 +121,154 @@ bool audio_play_mp3_file(const char* filename) {
     }
 }
 
-bool audio_download_mp3_url(const char* url) {
+// Start a non-blocking download
+bool audio_start_download(const char* url) {
     if (is_playing) {
         ESP_LOGW(TAG, "Already playing audio");
         return false;
     }
     
-    ESP_LOGI(TAG, "Downloading MP3 from URL: %s", url);
-    ESP_LOGI(TAG, "Free heap before download: %d bytes", esp_get_free_heap_size());
-    
-    // Check network connectivity first
-    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-    if (netif == NULL) {
-        ESP_LOGE(TAG, "Network interface not found!");
+    if (download_state != DOWNLOAD_IDLE) {
+        ESP_LOGW(TAG, "Download already in progress");
         return false;
     }
     
-    esp_netif_ip_info_t ip_info;
-    if (esp_netif_get_ip_info(netif, &ip_info) == ESP_OK) {
-        ESP_LOGI(TAG, "IP: " IPSTR, IP2STR(&ip_info.ip));
-        ESP_LOGI(TAG, "Gateway: " IPSTR, IP2STR(&ip_info.gw));
-        ESP_LOGI(TAG, "Netmask: " IPSTR, IP2STR(&ip_info.netmask));
+    ESP_LOGI(TAG, "Starting download from URL: %s", url);
+    ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
+    
+    // Store URL for later use
+    download_url = String(url);
+    
+    // Delete old temp file if it exists
+    if (LittleFS.exists("/temp_stream.mp3")) {
+        LittleFS.remove("/temp_stream.mp3");
     }
     
-    // Check DNS servers
-    esp_netif_dns_info_t dns_info;
-    if (esp_netif_get_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info) == ESP_OK) {
-        ESP_LOGI(TAG, "DNS Main: " IPSTR, IP2STR(&dns_info.ip.u_addr.ip4));
-    }
-    if (esp_netif_get_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info) == ESP_OK) {
-        ESP_LOGI(TAG, "DNS Backup: " IPSTR, IP2STR(&dns_info.ip.u_addr.ip4));
-    }
-    
-    // Try to resolve DNS using lwIP directly (works with ESP-IDF WiFi)
-    ESP_LOGI(TAG, "Attempting DNS resolution using lwIP...");
-    struct addrinfo hints = {};
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    
-    struct addrinfo *result = NULL;
-    int err = getaddrinfo("mdnwjeafufvrrxphotzv.supabase.co", "443", &hints, &result);
-    
-    if (err != 0 || result == NULL) {
-        ESP_LOGE(TAG, "DNS resolution failed: %d", err);
-        if (result) freeaddrinfo(result);
+    // Open file for writing
+    download_file = LittleFS.open("/temp_stream.mp3", "w");
+    if (!download_file) {
+        ESP_LOGE(TAG, "Failed to open file for writing");
         return false;
     }
     
-    struct sockaddr_in *addr = (struct sockaddr_in *)result->ai_addr;
-    char ip_str[16];
-    inet_ntoa_r(addr->sin_addr, ip_str, sizeof(ip_str));
-    ESP_LOGI(TAG, "DNS resolved to: %s", ip_str);
-    freeaddrinfo(result);
+    // Create client and HTTP objects
+    download_client = new WiFiClientSecure();
+    download_client->setInsecure();
     
-    // Now try HTTP request
-    ESP_LOGI(TAG, "Creating WiFiClientSecure...");
-    WiFiClientSecure client;
-    client.setInsecure();
-    ESP_LOGI(TAG, "WiFiClientSecure created with insecure mode");
+    download_http = new HTTPClient();
+    download_http->begin(*download_client, url);
     
-    HTTPClient http;
-    ESP_LOGI(TAG, "Calling http.begin()...");
-    http.begin(client, url);
-    
-    ESP_LOGI(TAG, "Starting HTTP GET request...");
-    int httpCode = http.GET();
-    
-    ESP_LOGI(TAG, "HTTP response code: %d", httpCode);
+    // Start the request
+    int httpCode = download_http->GET();
     
     if (httpCode == HTTP_CODE_OK) {
-        // Open file for writing
-        File file = LittleFS.open("/temp_stream.mp3", "w");
-        if (!file) {
-            ESP_LOGE(TAG, "Failed to open file for writing");
-            http.end();
-            return false;
-        }
-        
-        // Use writeToStream like the working example
-        ESP_LOGI(TAG, "Writing stream to file...");
-        int written = http.writeToStream(&file);
-        file.close();
-        
-        ESP_LOGI(TAG, "File downloaded and saved: %d bytes", written);
-        ESP_LOGI(TAG, "Free heap after download: %d bytes", esp_get_free_heap_size());
-        
-        http.end();
-        
-        if (written > 0) {
-            ESP_LOGI(TAG, "File downloaded successfully: %d bytes", written);
-            return true;
-        } else {
-            ESP_LOGE(TAG, "No data written to file");
-            return false;
-        }
+        download_total_bytes = download_http->getSize();
+        download_received_bytes = 0;
+        download_state = DOWNLOAD_IN_PROGRESS;
+        ESP_LOGI(TAG, "Download started, total size: %d bytes", download_total_bytes);
+        return true;
     } else {
-        ESP_LOGE(TAG, "Failed to download file, HTTP error code: %d", httpCode);
-        ESP_LOGE(TAG, "Error message: %s", http.errorToString(httpCode).c_str());
-        http.end();
+        ESP_LOGE(TAG, "HTTP error: %d - %s", httpCode, download_http->errorToString(httpCode).c_str());
+        download_file.close();
+        download_http->end();
+        delete download_http;
+        delete download_client;
+        download_http = NULL;
+        download_client = NULL;
+        download_state = DOWNLOAD_FAILED;
         return false;
     }
+}
+
+// Process download in chunks (call from loop)
+void audio_download_loop() {
+    if (download_state != DOWNLOAD_IN_PROGRESS) {
+        return;
+    }
+    
+    WiFiClient *stream = download_http->getStreamPtr();
+    if (stream == NULL) {
+        ESP_LOGE(TAG, "Stream is null");
+        download_state = DOWNLOAD_FAILED;
+        return;
+    }
+    
+    // Read available data in small chunks to keep LED responsive
+    int available = stream->available();
+    if (available > 0) {
+        // Read up to 1KB at a time to keep loop responsive
+        uint8_t buffer[1024];
+        int toRead = min(available, (int)sizeof(buffer));
+        int bytesRead = stream->readBytes(buffer, toRead);
+        
+        if (bytesRead > 0) {
+            download_file.write(buffer, bytesRead);
+            download_received_bytes += bytesRead;
+            
+            // Log progress every 100KB
+            static int last_logged = 0;
+            if (download_received_bytes - last_logged >= 102400) {
+                ESP_LOGI(TAG, "Download progress: %d / %d bytes (%.1f%%)", 
+                         download_received_bytes, download_total_bytes,
+                         download_total_bytes > 0 ? (download_received_bytes * 100.0 / download_total_bytes) : 0);
+                last_logged = download_received_bytes;
+            }
+        }
+    }
+    
+    // Check if download is complete
+    if (!stream->connected() && stream->available() == 0) {
+        download_file.close();
+        download_http->end();
+        delete download_http;
+        delete download_client;
+        download_http = NULL;
+        download_client = NULL;
+        
+        if (download_received_bytes > 0) {
+            download_state = DOWNLOAD_COMPLETE;
+            ESP_LOGI(TAG, "Download complete: %d bytes", download_received_bytes);
+        } else {
+            download_state = DOWNLOAD_FAILED;
+            ESP_LOGE(TAG, "Download failed: no data received");
+        }
+    }
+}
+
+// Check download status
+bool audio_is_downloading() {
+    return download_state == DOWNLOAD_IN_PROGRESS;
+}
+
+bool audio_download_complete() {
+    return download_state == DOWNLOAD_COMPLETE;
+}
+
+bool audio_download_failed() {
+    return download_state == DOWNLOAD_FAILED;
+}
+
+void audio_reset_download_state() {
+    download_state = DOWNLOAD_IDLE;
+    download_received_bytes = 0;
+    download_total_bytes = 0;
+}
+
+// Legacy blocking download (kept for compatibility)
+bool audio_download_mp3_url(const char* url) {
+    if (!audio_start_download(url)) {
+        return false;
+    }
+    
+    // Block until complete (legacy behavior)
+    while (download_state == DOWNLOAD_IN_PROGRESS) {
+        audio_download_loop();
+        delay(1);
+    }
+    
+    bool success = (download_state == DOWNLOAD_COMPLETE);
+    audio_reset_download_state();
+    return success;
 }
 
 void audio_set_volume(float volume) {
@@ -231,42 +284,50 @@ void audio_set_volume(float volume) {
     }
 }
 
-void audio_enable_fade(float start_vol, float end_vol, unsigned long duration_ms) {
-    fade_start_volume = start_vol;
-    fade_end_volume = end_vol;
-    fade_duration = duration_ms;
-    volume_fade_enabled = true;
-    
-    // Set initial volume
-    audio_set_volume(start_vol);
-    
-    ESP_LOGI(TAG, "Fade enabled: %.0f%% -> %.0f%% over %lu ms", 
-             start_vol * 100, end_vol * 100, duration_ms);
+void audio_pause() {
+    if (mp3 != NULL && mp3->isRunning() && !is_paused) {
+        is_paused = true;
+        ESP_LOGI(TAG, "Audio paused");
+    }
+}
+
+void audio_resume() {
+    if (mp3 != NULL && is_paused) {
+        is_paused = false;
+        ESP_LOGI(TAG, "Audio resumed");
+    }
+}
+
+void audio_toggle_pause() {
+    if (is_paused) {
+        audio_resume();
+    } else {
+        audio_pause();
+    }
+}
+
+void audio_stop() {
+    if (mp3 != NULL) {
+        mp3->stop();
+        ESP_LOGI(TAG, "Audio stopped");
+    }
+    is_playing = false;
+    is_paused = false;
+}
+
+bool audio_is_paused() {
+    return is_paused;
 }
 
 void audio_loop() {
+    // Handle non-blocking download
+    audio_download_loop();
+    
     // Handle MP3 playback
     if (mp3 != NULL && mp3->isRunning()) {
-        // Handle volume fade if enabled
-        if (volume_fade_enabled && playback_start_time > 0) {
-            unsigned long elapsed = millis() - playback_start_time;
-            
-            if (elapsed < fade_duration) {
-                // Calculate fade progress (0.0 to 1.0)
-                float progress = (float)elapsed / (float)fade_duration;
-                
-                // Linear interpolation between start and end volume
-                float target_volume = fade_start_volume + (fade_end_volume - fade_start_volume) * progress;
-                
-                // Only update if volume changed significantly (avoid too many updates)
-                if (abs(target_volume - current_volume) > 0.01) {
-                    audio_set_volume(target_volume);
-                }
-            } else if (elapsed >= fade_duration && current_volume != fade_end_volume) {
-                // Fade complete, set final volume
-                audio_set_volume(fade_end_volume);
-                volume_fade_enabled = false;  // Disable fade
-            }
+        // Skip processing if paused
+        if (is_paused) {
+            return;
         }
         
         if (!mp3->loop()) {
@@ -274,8 +335,7 @@ void audio_loop() {
             mp3->stop();
             ESP_LOGI(TAG, "MP3 playback complete");
             is_playing = false;
-            volume_fade_enabled = false;
-            playback_start_time = 0;
+            is_paused = false;
         }
     }
 }

@@ -41,9 +41,13 @@ static int last_volume_value = -1;
 
 // Play button configuration (GPIO 33)
 #define PLAY_BUTTON_PIN 33
+#define PLAY_BUTTON_STOP_HOLD_TIME 4000  // Hold 4 seconds to stop
 static bool play_button_last_state = HIGH;
+static unsigned long play_button_press_start = 0;
+static bool play_button_was_pressed = false;
 static bool file_downloaded = false;
 static bool file_ready_to_play = false;
+static bool download_started = false;
 
 // Callback for WiFi provisioning status updates
 void wifi_status_callback(const char* status) {
@@ -279,9 +283,9 @@ void loop() {
         download_test_file = true;  // Set flag to download test file after connected sound
     }
     
-    // Download file 5 seconds after WiFi connected (but don't play yet)
-    if (download_test_file && !audio_is_playing() && !file_downloaded && (now - wifi_connected_time > 5000)) {
-        ESP_LOGI(TAG, "Downloading MP3 file (will play when button pressed)...");
+    // Start download 5 seconds after WiFi connected (non-blocking)
+    if (download_test_file && !audio_is_playing() && !file_downloaded && !download_started && (now - wifi_connected_time > 5000)) {
+        ESP_LOGI(TAG, "Starting MP3 download (non-blocking)...");
         
         // Check available space
         size_t total = LittleFS.totalBytes();
@@ -289,45 +293,79 @@ void loop() {
         ESP_LOGI(TAG, "LittleFS: %d KB total, %d KB used, %d KB free", 
                  total/1024, used/1024, (total-used)/1024);
         
-        // Delete old temp file if it exists
-        if (LittleFS.exists("/temp_stream.mp3")) {
-            LittleFS.remove("/temp_stream.mp3");
-            ESP_LOGI(TAG, "Deleted old temp file");
-        }
-        
-        // Download file (modified audio_play_mp3_url to just download)
-        if (audio_download_mp3_url("https://mdnwjeafufvrrxphotzv.supabase.co/storage/v1/object/public/feynman/dubai_pirate.mp3")) {
-            file_downloaded = true;
-            file_ready_to_play = true;
-            ESP_LOGI(TAG, "File downloaded successfully! Press button on GPIO 33 to play.");
+        // Start non-blocking download
+        if (audio_start_download("https://mdnwjeafufvrrxphotzv.supabase.co/storage/v1/object/public/feynman/dubai_pirate.mp3")) {
+            download_started = true;
+            strcpy(ip_display_text, "Downloading...");
         } else {
-            ESP_LOGE(TAG, "File download failed!");
+            ESP_LOGE(TAG, "Failed to start download!");
+            download_test_file = false;
         }
-        download_test_file = false;
     }
     
-    // Check play button (GPIO 33) - active LOW
+    // Check if download completed
+    if (download_started && audio_download_complete()) {
+        file_downloaded = true;
+        file_ready_to_play = true;
+        download_started = false;
+        download_test_file = false;
+        audio_reset_download_state();
+        ESP_LOGI(TAG, "File downloaded successfully! Press button on GPIO 33 to play.");
+        // Restore IP display
+        strcpy(ip_display_text, "Ready to play");
+    } else if (download_started && audio_download_failed()) {
+        ESP_LOGE(TAG, "File download failed!");
+        download_started = false;
+        download_test_file = false;
+        audio_reset_download_state();
+        strcpy(ip_display_text, "Download failed");
+    }
+    
+    // Check play button (GPIO 33) - active LOW with pause/stop functionality
     bool play_button_state = digitalRead(PLAY_BUTTON_PIN);
-    if (play_button_state == LOW && play_button_last_state == HIGH) {
-        // Button pressed (falling edge)
+    
+    if (play_button_state == LOW && !play_button_was_pressed) {
+        // Button just pressed
         delay(50);  // Debounce
         if (digitalRead(PLAY_BUTTON_PIN) == LOW) {
-            ESP_LOGI(TAG, "Play button pressed!");
-            
-            if (file_ready_to_play && !audio_is_playing()) {
+            play_button_press_start = now;
+            play_button_was_pressed = true;
+            ESP_LOGI(TAG, "Play button pressed");
+        }
+    } else if (play_button_state == LOW && play_button_was_pressed) {
+        // Button is being held - check for stop (4 seconds)
+        unsigned long hold_time = now - play_button_press_start;
+        
+        if (hold_time >= PLAY_BUTTON_STOP_HOLD_TIME && audio_is_playing()) {
+            ESP_LOGI(TAG, "Stopping playback (held for %lu ms)", hold_time);
+            audio_stop();
+            file_ready_to_play = true;  // Allow replay
+            play_button_was_pressed = false;  // Prevent repeated triggers
+        }
+    } else if (play_button_state == HIGH && play_button_was_pressed) {
+        // Button released - check what action to take
+        unsigned long hold_time = now - play_button_press_start;
+        play_button_was_pressed = false;
+        
+        // Only act on short press (not if we already stopped)
+        if (hold_time < PLAY_BUTTON_STOP_HOLD_TIME) {
+            if (audio_is_playing()) {
+                // Toggle pause/resume
+                audio_toggle_pause();
+                if (audio_is_paused()) {
+                    ESP_LOGI(TAG, "Playback paused");
+                } else {
+                    ESP_LOGI(TAG, "Playback resumed");
+                }
+            } else if (file_ready_to_play) {
+                // Start playback
                 ESP_LOGI(TAG, "Starting playback...");
-                
-                // Enable volume fade for downloaded stream
-                audio_enable_fade(0.2, 0.5, 10000);  // 20% -> 50% over 10s
-                
                 if (audio_play_mp3_file("/temp_stream.mp3")) {
                     file_ready_to_play = false;  // Mark as playing
                     ESP_LOGI(TAG, "Playback started!");
                 } else {
                     ESP_LOGE(TAG, "Failed to start playback!");
                 }
-            } else if (audio_is_playing()) {
-                ESP_LOGI(TAG, "Already playing!");
             } else {
                 ESP_LOGI(TAG, "No file ready to play!");
             }

@@ -121,6 +121,28 @@ bool audio_play_mp3_file(const char* filename) {
     }
 }
 
+// Helper to extract hostname from URL
+static bool extract_hostname(const char* url, char* hostname, size_t hostname_size) {
+    // Skip protocol (https:// or http://)
+    const char* start = strstr(url, "://");
+    if (start == NULL) {
+        return false;
+    }
+    start += 3;  // Skip "://"
+    
+    // Find end of hostname (either / or end of string)
+    const char* end = strchr(start, '/');
+    size_t len = end ? (size_t)(end - start) : strlen(start);
+    
+    if (len >= hostname_size) {
+        return false;
+    }
+    
+    strncpy(hostname, start, len);
+    hostname[len] = '\0';
+    return true;
+}
+
 // Start a non-blocking download
 bool audio_start_download(const char* url) {
     if (is_playing) {
@@ -135,6 +157,34 @@ bool audio_start_download(const char* url) {
     
     ESP_LOGI(TAG, "Starting download from URL: %s", url);
     ESP_LOGI(TAG, "Free heap: %d bytes", esp_get_free_heap_size());
+    
+    // Extract hostname for DNS resolution
+    char hostname[128];
+    if (!extract_hostname(url, hostname, sizeof(hostname))) {
+        ESP_LOGE(TAG, "Failed to extract hostname from URL");
+        return false;
+    }
+    
+    // Resolve DNS using lwIP (works with ESP-IDF WiFi)
+    ESP_LOGI(TAG, "Resolving DNS for: %s", hostname);
+    struct addrinfo hints = {};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    
+    struct addrinfo *result = NULL;
+    int err = getaddrinfo(hostname, "443", &hints, &result);
+    
+    if (err != 0 || result == NULL) {
+        ESP_LOGE(TAG, "DNS resolution failed: %d", err);
+        if (result) freeaddrinfo(result);
+        return false;
+    }
+    
+    struct sockaddr_in *addr = (struct sockaddr_in *)result->ai_addr;
+    char ip_str[16];
+    inet_ntoa_r(addr->sin_addr, ip_str, sizeof(ip_str));
+    ESP_LOGI(TAG, "DNS resolved to: %s", ip_str);
+    freeaddrinfo(result);
     
     // Store URL for later use
     download_url = String(url);
@@ -159,7 +209,10 @@ bool audio_start_download(const char* url) {
     download_http->begin(*download_client, url);
     
     // Start the request
+    ESP_LOGI(TAG, "Starting HTTP GET request...");
     int httpCode = download_http->GET();
+    
+    ESP_LOGI(TAG, "HTTP response code: %d", httpCode);
     
     if (httpCode == HTTP_CODE_OK) {
         download_total_bytes = download_http->getSize();

@@ -1,0 +1,4 @@
+# ESP32-S3 specific SDK configuration
+# TEMPORARY: Enable insecure TLS to test download (will fix certificate later)
+CONFIG_ESP_TLS_INSECURE=y
+CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y

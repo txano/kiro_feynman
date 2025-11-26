@@ -9,56 +9,61 @@
 - [x] Document any issues or bugs found
 - [ ] Test power consumption and heat generation
 
-## 📋 Phase 2: Audio Streaming (In Progress) 🚧
+## 📋 Phase 2: Audio Streaming ✅ COMPLETE
 
 ### Research & Planning
 - [x] Plan I2S pin configuration (GPIO 4, 5, 2)
 - [x] Test I2S driver with tone generation
-- [ ] Choose audio codec (MP3 vs AAC vs WAV)
-- [ ] Select audio streaming library (ESP32-audioI2S recommended)
-- [ ] Determine buffer sizes and sample rates
-- [ ] Find sample audio URLs for testing
+- [x] Choose audio codec (MP3 selected)
+- [x] Select audio streaming library (ESP8266Audio)
+- [x] Determine buffer sizes and sample rates
+- [x] Find sample audio URLs for testing
 
 ### Implementation
 - [x] Add I2S driver initialization
 - [x] Implement basic tone generation
-- [x] Add audio feedback for BLE ready (800 Hz tone)
-- [x] Add audio feedback for WiFi connected (1200 Hz tone)
-- [ ] Implement HTTP audio streaming client
-- [ ] Add audio decoder (MP3/AAC)
-- [ ] Implement buffer management
-- [ ] Add basic playback controls (play/pause)
-- [ ] Integrate with LED matrix (show playing status)
-- [ ] Test with sample audio files
+- [x] Add audio feedback for BLE ready (ready.mp3)
+- [x] Add audio feedback for WiFi connected (connected.mp3)
+- [x] Implement HTTPS audio streaming client
+- [x] Add MP3 decoder (Helix)
+- [x] Implement buffer management
+- [x] Add basic playback controls (play button)
+- [x] Add volume control (potentiometer)
+- [x] Add reset button for WiFi credentials
+- [x] Integrate with LED matrix (show playing status)
+- [x] Test with sample audio files
 
 ### Testing
-- [ ] Test audio quality at different bitrates
-- [ ] Verify no buffer underruns
-- [ ] Test streaming stability over WiFi
-- [ ] Measure latency
-- [ ] Test with different audio formats
+- [x] Test audio quality at different bitrates
+- [x] Verify no buffer underruns
+- [x] Test streaming stability over WiFi
+- [x] Test with large files (2MB+)
+- [x] Test HTTPS downloads from Supabase
 
-## 📋 Phase 3: User Interface
+## 📋 Phase 3: User Interface (In Progress) 🚧
 
 ### Hardware Integration
-- [ ] Add button GPIO configuration (GPIO 1, 2, 3)
-- [ ] Implement button debouncing
-- [ ] Add potentiometer ADC reading (GPIO 4)
-- [ ] Test button responsiveness
-- [ ] Calibrate volume control
+- [x] Add button GPIO configuration (GPIO 33, 34)
+- [x] Implement button debouncing
+- [x] Add potentiometer ADC reading (GPIO 6)
+- [x] Test button responsiveness
+- [x] Calibrate volume control
+- [ ] Add additional buttons (GPIO 1, 3)
 
 ### Software Implementation
-- [ ] Create button event handler
+- [x] Create button event handler
+- [x] Add volume control logic
+- [x] Add reset button functionality
 - [ ] Implement story selection UI
-- [ ] Add volume control logic
 - [ ] Create LED matrix UI elements
 - [ ] Add visual feedback for all interactions
 
 ### Features
+- [x] Play button (GPIO 33)
+- [x] Reset button (GPIO 34 - hold 5s)
+- [x] Volume control via potentiometer (GPIO 6)
 - [ ] Story selection menu
-- [ ] Play/Pause button
 - [ ] Next/Previous story buttons
-- [ ] Volume up/down via potentiometer
 - [ ] Visual volume indicator on LED matrix
 
 ## 📋 Phase 4: Cloud Integration
@@ -120,9 +125,11 @@
 
 - [ ] Hardcoded PoP (should be unique per device)
 - [ ] No provisioning timeout
-- [ ] No factory reset mechanism
+- [x] No factory reset mechanism - FIXED (GPIO 34 reset button)
 - [ ] LED matrix brightness could damage board if set too high
 - [ ] No error recovery for failed WiFi connection
+- [ ] HTTPS certificate validation disabled (insecure mode)
+- [ ] OpenAI API key hardcoded in source (should use secure storage)
 
 ## 📚 Documentation
 

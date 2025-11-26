@@ -1,37 +1,34 @@
-# FreeRTOS (required by Arduino)
-CONFIG_FREERTOS_HZ=1000
+# ESP32-S3 SDK Configuration
+# This file configures ESP-IDF settings for the Arduino framework
 
-# Flash size configuration (4MB for ESP32-S3-Matrix)
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
-CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+# Enable certificate bundle for proper HTTPS support
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
 
-# ESP32-S3 specific
-CONFIG_IDF_TARGET="esp32s3"
-CONFIG_IDF_TARGET_ESP32S3=y
+# TLS/SSL Protocol support
+CONFIG_MBEDTLS_SSL_PROTO_TLS1_2=y
+CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=n
 
-# Bluetooth configuration - Enabled for BLE provisioning
-CONFIG_BT_ENABLED=y
-CONFIG_BT_BLUEDROID_ENABLED=y
-CONFIG_BT_BLE_ENABLED=y
-CONFIG_BT_CONTROLLER_ENABLED=y
+# CRITICAL: Increase mbedTLS buffer sizes to prevent -0x7780 error
+# Default is 16384 (16KB), increase to 18KB for Supabase
+CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=18432
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096
 
-# BLE specific settings
-CONFIG_BTDM_CTRL_MODE_BLE_ONLY=y
-CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY=n
-CONFIG_BTDM_CTRL_MODE_BTDM=n
+# Reduce dynamic memory allocation during handshake
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
+CONFIG_MBEDTLS_DYNAMIC_FREE_PEER_CERT=y
+CONFIG_MBEDTLS_DYNAMIC_FREE_CONFIG_DATA=y
 
-# WiFi Provisioning via BLE
-CONFIG_BT_NIMBLE_ENABLED=n
+# HTTP Client configuration
+CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
 
-# Disable certificate bundle (not needed for this project)
-CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
-CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
-CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=n
+# TEMPORARY: Allow insecure TLS to test download (skip certificate verification)
+# TODO: Get proper Supabase/Cloudflare certificate and re-enable verification
+CONFIG_ESP_TLS_INSECURE=y
+CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y
 
-# PSRAM - Disable if not present on your board
-# CONFIG_SPIRAM=n
+# Logging
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 
-# Partition table
-CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+# Memory optimization
+CONFIG_MBEDTLS_ASYMMETRIC_CONTENT_LEN=y

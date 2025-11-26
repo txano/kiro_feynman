@@ -9,6 +9,9 @@
 #include <nvs_flash.h>
 #include <wifi_provisioning/manager.h>
 #include <wifi_provisioning/scheme_ble.h>
+#include <esp_sntp.h>
+#include <time.h>
+#include <sys/time.h>
 
 static const char *TAG = "wifi_prov";
 
@@ -244,4 +247,44 @@ void wifi_prov_reset()
     wifi_prov_mgr_reset_provisioning();
     
     ESP_LOGI(TAG, "WiFi credentials cleared");
+}
+
+// Synchronize time using NTP
+bool wifi_sync_time()
+{
+    ESP_LOGI(TAG, "Initializing SNTP for time synchronization...");
+    
+    // Configure SNTP
+    esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setservername(1, "time.google.com");
+    esp_sntp_init();
+    
+    // Wait for time to be set (max 10 seconds)
+    time_t now = 0;
+    struct tm timeinfo = { 0 };
+    int retry = 0;
+    const int retry_count = 20; // 20 * 500ms = 10 seconds
+    
+    while (timeinfo.tm_year < (2024 - 1900) && ++retry < retry_count) {
+        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        time(&now);
+        localtime_r(&now, &timeinfo);
+    }
+    
+    if (timeinfo.tm_year < (2024 - 1900)) {
+        ESP_LOGE(TAG, "Failed to sync time via NTP");
+        return false;
+    }
+    
+    // Set timezone to UTC
+    setenv("TZ", "UTC", 1);
+    tzset();
+    
+    char strftime_buf[64];
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(TAG, "Time synchronized: %s", strftime_buf);
+    
+    return true;
 }

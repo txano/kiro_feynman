@@ -18,4 +18,7 @@ bool wifi_prov_is_provisioned();
 // Reset provisioning (for testing)
 void wifi_prov_reset();
 
+// Synchronize time using NTP (call after WiFi is connected)
+bool wifi_sync_time();
+
 #endif // WIFI_PROVISIONING_H

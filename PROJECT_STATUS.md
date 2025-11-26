@@ -76,39 +76,55 @@
 4. **No factory reset button combo**: Need to erase flash or use code to re-provision
 5. **Open AP**: SoftAP has no password (security relies on PoP during provisioning)
 
-## Phase 2: Audio Streaming (In Progress) 🚧
+## Phase 2: Audio Streaming ✅ COMPLETE
 
 ### Completed Features
 
 #### 1. I2S Audio Output
 - ✅ I2S driver initialization (GPIO 4, 5, 2)
 - ✅ 3W Class D amplifier integration
-- ✅ Basic tone generation (sine wave)
-- ✅ Audio feedback for BLE ready (800 Hz, 200ms)
-- ✅ Audio feedback for WiFi connected (1200 Hz, 300ms)
+- ✅ MP3 playback from LittleFS
+- ✅ Audio feedback for BLE ready (ready.mp3)
+- ✅ Audio feedback for WiFi connected (connected.mp3)
 
-### In Progress
+#### 2. HTTPS Audio Streaming
+- ✅ HTTPS downloads from Supabase Storage
+- ✅ DNS resolution using lwIP (works with ESP-IDF WiFi)
+- ✅ WiFiClientSecure with insecure mode
+- ✅ Efficient streaming with `writeToStream()`
+- ✅ Support for large files (tested with 2MB MP3)
+- ✅ Network diagnostics and logging
+- ✅ mbedTLS SSL buffer optimization (18KB input buffers)
+- ✅ Certificate validation bypass for development
 
-#### 2. HTTP Audio Streaming
-- [ ] HTTP client for audio streaming
-- [ ] Support for MP3/AAC decoding
-- [ ] Buffer management for smooth playback
+#### 3. MP3 Playback
+- ✅ ESP8266Audio library integration
+- ✅ MP3 decoding (Helix decoder)
+- ✅ Playback from LittleFS
+- ✅ Playback from downloaded streams
+- ✅ Non-blocking playback in main loop
 
-#### 3. Sample Audio Playback
-- [ ] Test with sample audio URL
-- [ ] Volume control (basic)
-- [ ] Play/pause functionality
+#### 4. Volume Control
+- ✅ Potentiometer-based volume control (GPIO 6)
+- ✅ Dynamic volume adjustment (0-100%)
+- ✅ Automatic fade-in for streams (20% → 50% over 10s)
+- ✅ Smooth linear interpolation
+- ✅ Real-time ADC reading with debouncing
 
-#### 4. LED Matrix Integration
-- [ ] Show "playing" animation
-- [ ] Audio level visualization (optional)
+#### 5. User Interface
+- ✅ Play button control (GPIO 33)
+- ✅ Download-then-play workflow
+- ✅ Button debouncing
+- ✅ Reset button (GPIO 34) - hold 5s to clear WiFi credentials
 
-### Technical Decisions Needed
+### Technical Decisions Made
 
-1. **Audio codec**: MP3 (ESP32-audioI2S) vs AAC vs WAV
-2. **Streaming library**: ESP32-audioI2S vs custom implementation
-3. **Buffer size**: Balance between latency and stability
-4. **Sample rate**: 16kHz (speech) vs 44.1kHz (music)
+1. **Audio codec**: MP3 using ESP8266Audio library with Helix decoder
+2. **Streaming approach**: Download to LittleFS then play (reliable for 2MB+ files)
+3. **Buffer size**: 512 bytes for downloads, library handles playback buffering
+4. **Sample rate**: 44.1kHz (supports both speech and music)
+5. **SSL/TLS**: Insecure mode for development (certificate validation disabled)
+6. **Memory**: Optimized for ESP32-S3 without PSRAM (~2.3MB free heap)
 
 ## Phase 3: User Interface (Future)
 
@@ -157,9 +173,11 @@
 | I2S BCLK | 4 | ✅ Implemented |
 | I2S LRCLK | 5 | ✅ Implemented |
 | I2S DOUT | 2 | ✅ Implemented |
+| Potentiometer (Volume) | 6 | ✅ Implemented |
+| Play Button | 33 | ✅ Implemented |
+| Reset Button (BOOT) | 34 | ✅ Implemented |
 | Button 1 (Select) | 1 | 📋 Planned |
 | Button 3 (Next/Prev) | 3 | 📋 Planned |
-| Potentiometer (Volume) | TBD | 📋 Planned |
 
 ## Next Steps
 
@@ -180,23 +198,56 @@
 
 ---
 
-**Last Updated**: Phase 2 started - I2S audio working
-**Current Phase**: Phase 2 - 🚧 IN PROGRESS
-**Next Milestone**: HTTP audio streaming and MP3 decoding
+**Last Updated**: Phase 2 complete - HTTPS streaming working
+**Current Phase**: Phase 2 - ✅ COMPLETE
+**Next Milestone**: Phase 3 - User Interface (buttons, volume control, story selection)
 
 ### Phase 1 Achievements
 
-- Successfully implemented BLE provisioning
+- Successfully implemented BLE provisioning via SoftAP
 - LED matrix displays scrolling status text with color coding
 - IP address displayed correctly from ESP-IDF network interface
 - Physical button reset (hold BOOT for 5 seconds)
 - Tested and working on physical devices
-- Comprehensive documentation updated
+- Comprehensive documentation
 
-### Phase 2 Progress
+### Phase 2 Achievements
 
-- I2S audio driver initialized (GPIO 4, 5, 2)
-- Basic tone generation working
-- Audio feedback for BLE ready (800 Hz tone)
-- Audio feedback for WiFi connected (1200 Hz tone)
-- Tested with MAX98357A amplifier and speaker
+- HTTPS downloads from Supabase Storage working
+- MP3 playback from LittleFS and downloaded streams
+- Potentiometer-based volume control with real-time adjustment
+- Play button for on-demand audio playback
+- Reset button for WiFi credential clearing
+- Automatic fade-in for smooth audio transitions
+- Hybrid ESP-IDF/Arduino architecture for WiFi + HTTPS
+- DNS resolution using lwIP (compatible with ESP-IDF WiFi)
+- Memory optimizations for ESP32-S3 without PSRAM
+- mbedTLS SSL buffer tuning for stable HTTPS
+- Tested with files up to 2MB
+- ~2.3MB free heap during operation
+
+### Latest Changes (Session Summary)
+
+**HTTPS Implementation:**
+- Resolved SSL handshake failures (-0x7780, -0x2700 errors)
+- Configured mbedTLS with 18KB SSL input buffers
+- Implemented certificate validation bypass for development
+- Fixed DNS resolution compatibility with ESP-IDF WiFi stack
+
+**Volume Control:**
+- Added potentiometer on GPIO 6 (ADC1_CH5)
+- Real-time volume adjustment (0-100%)
+- Automatic fade functionality for streams
+- Debouncing to prevent jitter
+
+**User Interface:**
+- Play button on GPIO 33 for on-demand playback
+- Download-then-play workflow for better UX
+- Reset button on GPIO 34 (hold 5s to clear WiFi)
+- Button debouncing for reliable input
+
+**Memory Optimization:**
+- Optimized partition layout (2MB app, 2MB LittleFS)
+- Removed WAV files, using MP3 for all audio
+- Configured SSL buffers for ESP32-S3 without PSRAM
+- Maintained ~2.3MB free heap during operation

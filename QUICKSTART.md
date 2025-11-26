@@ -109,8 +109,8 @@ pio run --target upload
 ## 📚 Next Steps
 
 1. ✅ **Phase 1 Complete** - WiFi provisioning works!
-2. 📋 **Phase 2 Next** - Add audio streaming
-3. 📋 **Phase 3 Later** - Add buttons and UI
+2. ✅ **Phase 2 Complete** - Audio streaming works!
+3. 📋 **Phase 3 In Progress** - Story selection UI
 4. 📋 **Phase 4 Future** - Cloud service integration
 
 See **PROJECT_STATUS.md** for detailed roadmap.

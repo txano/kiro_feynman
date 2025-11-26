@@ -116,9 +116,9 @@ Check if Provisioned?
 └────────────────────────────────────────┘
 ```
 
-## Phase 2: Audio Streaming (Planned)
+## Phase 2: Audio Streaming (Complete ✅)
 
-### Extended Architecture
+### Current Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -130,9 +130,13 @@ Check if Provisioned?
 │        │          │              │              │            │
 │  ┌─────▼────┐ ┌──▼──────┐ ┌─────▼─────┐ ┌──────▼────────┐  │
 │  │   WiFi   │ │   LED   │ │   Audio   │ │   Storage     │  │
-│  │   Prov   │ │  Matrix │ │  Streaming│ │   (SPIFFS)    │  │
+│  │   Prov   │ │  Matrix │ │  Player   │ │  (LittleFS)   │  │
 │  └──────────┘ └─────────┘ └─────┬─────┘ └───────────────┘  │
 │                                  │                           │
+│                            ┌─────▼─────┐                     │
+│                            │ESP8266Audio│                    │
+│                            │(MP3 Helix) │                    │
+│                            └─────┬─────┘                     │
 │                            ┌─────▼─────┐                     │
 │                            │ I2S Driver│                     │
 │                            └─────┬─────┘                     │
@@ -144,46 +148,51 @@ Check if Provisioned?
                              └────────────┘
 ```
 
-### Audio Streaming Flow
+### Audio Playback Flow (Implemented)
 
 ```
-User Selects Story
+WiFi Connected
    │
    ▼
-Request Audio Stream URL
+Download MP3 from HTTPS URL ──► Save to /temp_stream.mp3
    │
    ▼
-HTTP Client Connects ──────► Show "Loading" on LED
+User Presses Play Button (GPIO 33)
    │
    ▼
-Start Receiving Audio Data
+Open MP3 from LittleFS
    │
    ▼
-Decode Audio (MP3/AAC)
+ESP8266Audio MP3 Decoder (Helix)
    │
    ▼
-Fill I2S Buffer
+I2S Output (GPIO 4, 5, 2)
    │
    ▼
-I2S DMA Transfer ──────────► Audio Output
-   │                              │
-   │                              ▼
-   │                         Amplifier
-   │                              │
-   │                              ▼
-   │                           Speaker
+3W Class D Amplifier ──► Speaker
    │
    ▼
-Show "Playing" Animation ───► LED Matrix
+Volume Control via Potentiometer (GPIO 6)
    │
    ▼
-Monitor Playback
-   │
-   ├─ Buffer Low ──► Request More Data
-   │
-   ├─ Button Press ──► Pause/Resume
-   │
-   └─ End of Stream ──► Show "Complete"
+Fade-in: 20% → 50% over 10 seconds
+```
+
+### User Controls (Implemented)
+
+```
+┌─────────────────────────────────────────┐
+│              User Controls              │
+├─────────────────────────────────────────┤
+│  Play Button (GPIO 33)                  │
+│  └─► Triggers MP3 playback              │
+│                                         │
+│  Reset Button (GPIO 34 / BOOT)          │
+│  └─► Hold 5s to clear WiFi credentials  │
+│                                         │
+│  Volume Potentiometer (GPIO 6)          │
+│  └─► Real-time volume 0-100%            │
+└─────────────────────────────────────────┘
 ```
 
 ## Phase 3: Full System (Future)
@@ -259,7 +268,7 @@ Potentiometer ──ADC──► Volume Control
 
 ## Memory Layout
 
-### Flash Partitions
+### Flash Partitions (4MB Total)
 
 ```
 ┌─────────────────────────────────────┐
@@ -267,18 +276,19 @@ Potentiometer ──ADC──► Volume Control
 ├─────────────────────────────────────┤
 │ 0x8000   Partition Table            │
 ├─────────────────────────────────────┤
-│ 0x9000   NVS (WiFi Credentials)     │
+│ 0x9000   NVS (20KB)                 │
+│          (WiFi Credentials)         │
 ├─────────────────────────────────────┤
-│ 0xF000   PHY Init Data              │
+│ 0xE000   OTA Data (8KB)             │
 ├─────────────────────────────────────┤
 │ 0x10000  Application (2MB)          │
 ├─────────────────────────────────────┤
-│          SPIFFS Storage (1MB)       │
-│          (for cached stories)       │
+│ 0x210000 LittleFS (2MB)             │
+│          (MP3 files, temp streams)  │
 └─────────────────────────────────────┘
 ```
 
-### RAM Usage (Estimated)
+### RAM Usage (Measured)
 
 ```
 ┌─────────────────────────────────────┐
@@ -288,11 +298,13 @@ Potentiometer ──ADC──► Volume Control
 ├─────────────────────────────────────┤
 │ LED Matrix Buffers          ~2KB    │
 ├─────────────────────────────────────┤
-│ Audio Buffers (future)      ~32KB   │
+│ Audio (ESP8266Audio)        ~32KB   │
+├─────────────────────────────────────┤
+│ mbedTLS SSL Buffers         ~22KB   │
 ├─────────────────────────────────────┤
 │ Application Code            ~20KB   │
 ├─────────────────────────────────────┤
-│ Free for expansion          ~300KB  │
+│ Free Heap (measured)        ~2.3MB  │
 └─────────────────────────────────────┘
 ```
 
@@ -317,10 +329,11 @@ Potentiometer ──ADC──► Volume Control
 - BLE provisioning: <30 seconds
 - WiFi connection: <10 seconds
 
-### Phase 2 (Audio)
-- Audio latency: <500ms
-- Buffer underruns: 0
-- Streaming bitrate: 64-128 kbps
+### Phase 2 (Audio) ✅ Achieved
+- Audio latency: <500ms ✅
+- Buffer underruns: 0 ✅
+- Streaming bitrate: 64-128 kbps ✅
+- HTTPS download: 2MB+ files ✅
 
 ### Phase 3 (Full System)
 - Button response: <100ms

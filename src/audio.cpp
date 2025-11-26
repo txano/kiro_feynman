@@ -218,10 +218,6 @@ bool audio_download_mp3_url(const char* url) {
     }
 }
 
-void audio_play_mp3(const char* filename) {
-    audio_play_mp3_file(filename);
-}
-
 void audio_set_volume(float volume) {
     // Clamp volume between 0.0 and 1.0
     if (volume < 0.0) volume = 0.0;

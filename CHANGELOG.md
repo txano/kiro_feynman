@@ -2,7 +2,35 @@
 
 All notable changes to the Story Device project will be documented in this file.
 
-## [Unreleased] - 2024-11-26
+## [2.1.0] - 2025-11-26
+
+### Changed - Code Cleanup & Documentation Update
+
+#### Code Cleanup
+- Removed unused `audio_play_mp3()` wrapper function from audio.cpp
+- Renamed misleading `test_openai_tts` variable to `download_test_file` in main.cpp
+- Removed unused `openai_tts.h` include from main.cpp
+- Removed commented-out OpenAI TTS initialization code
+
+#### Documentation Consolidation
+- Deleted redundant HTTPS documentation files:
+  - `HTTPS_SOLUTION_SUMMARY.md` (merged into HTTPS_CERTIFICATE_STATUS.md)
+  - `HTTPS_FIX_SUMMARY.md` (merged into HTTPS_CERTIFICATE_STATUS.md)
+  - `HTTPS_TLS_NOTES.md` (merged into HTTPS_CERTIFICATE_STATUS.md)
+- Deleted outdated phase documentation:
+  - `PHASE1_CHANGES.md` (info in CHANGELOG.md)
+  - `PHASE1_COMPLETE.md` (info in PROJECT_STATUS.md)
+  - `PHASE2_AUDIO.md` (info in PROJECT_STATUS.md)
+
+#### Documentation Updates
+- Updated README.md with current Phase 2 status and GPIO pinout
+- Updated ARCHITECTURE.md with current audio implementation
+- Updated PROJECT_STATUS.md with resolved questions
+- Updated QUICKSTART.md and QUICK_REFERENCE.md with current phase status
+- Updated product.md steering file with current features
+- Updated TODO.md with accurate known issues
+
+## [2.0.0] - 2024-11-26
 
 ### Added - Phase 2 Complete: Audio Streaming & User Interface
 

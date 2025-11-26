@@ -18,19 +18,20 @@ An ESP32-S3 based storytelling device with LED matrix display and audio streamin
 - [x] Physical button reset (hold BOOT for 5 seconds)
 - [x] Credentials persist across power cycles
 
-### Phase 2 (In Progress) 🚧
+### Phase 2 ✅
 - [x] I2S audio driver initialization
-- [x] Basic tone generation (test tones)
-- [x] Audio feedback for BLE ready (800 Hz)
-- [x] Audio feedback for WiFi connected (1200 Hz)
-- [ ] HTTP audio streaming
-- [ ] MP3/AAC decoding
-- [ ] Full audio playback
+- [x] MP3 playback from LittleFS (ESP8266Audio library)
+- [x] Audio feedback for BLE ready (ready.mp3)
+- [x] Audio feedback for WiFi connected (connected.mp3)
+- [x] HTTPS audio streaming from Supabase Storage
+- [x] Volume control via potentiometer (GPIO 6)
+- [x] Play button for on-demand playback (GPIO 33)
+- [x] Reset button to clear WiFi credentials (GPIO 34, hold 5s)
 
 ### Phase 3 (Future)
-- [ ] Button controls
-- [ ] Volume control via potentiometer
 - [ ] Story selection interface
+- [ ] Additional button controls (GPIO 1, 3)
+- [ ] Visual volume indicator on LED matrix
 - [ ] Cloud service integration
 
 ## Setup
@@ -110,9 +111,11 @@ Hold the **BOOT button** for 5 seconds to reset WiFi credentials. The device wil
 | I2S BCLK | 4 | Audio bit clock |
 | I2S LRCLK | 5 | Audio L/R clock |
 | I2S DOUT | 2 | Audio data out |
+| Volume Pot | 6 | ADC1_CH5, 0-3.3V |
+| Play Button | 33 | Active LOW, triggers playback |
+| Reset Button | 34 | BOOT button, hold 5s to reset WiFi |
 | Button 1 | 1 | Story select (future) |
 | Button 3 | 3 | Next/Previous (future) |
-| Potentiometer | TBD | Volume control ADC (future) |
 
 ## Troubleshooting
 
@@ -150,9 +153,10 @@ pio run --target upload
 
 ## Next Steps
 
-1. Test WiFi provisioning with your phone
-2. Verify LED matrix status indicators
-3. Move to Phase 2: Audio streaming implementation
+1. Implement story selection UI on LED matrix
+2. Add additional button controls (GPIO 1, 3)
+3. Integrate with cloud story service
+4. Add visual volume indicator
 
 ## Resources
 

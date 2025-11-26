@@ -82,13 +82,14 @@ pio run --target upload
 | Function | GPIO | Status |
 |----------|------|--------|
 | LED Matrix | 14 | ✅ Active |
-| I2S BCLK | 33 | Phase 2 |
-| I2S LRCLK | 34 | Phase 2 |
-| I2S DOUT | 35 | Phase 2 |
+| I2S BCLK | 4 | ✅ Active |
+| I2S LRCLK | 5 | ✅ Active |
+| I2S DOUT | 2 | ✅ Active |
+| Volume Pot | 6 | ✅ Active |
+| Play Button | 33 | ✅ Active |
+| Reset Button | 34 | ✅ Active |
 | Button 1 | 1 | Phase 3 |
-| Button 2 | 2 | Phase 3 |
 | Button 3 | 3 | Phase 3 |
-| Potentiometer | 4 | Phase 3 |
 
 ## Serial Monitor Output (Normal)
 
@@ -148,12 +149,12 @@ I (xxx) main: IP Address updated: IP: 192.168.x.x
 ## Phase Status
 
 - ✅ **Phase 1**: WiFi Provisioning + LED Matrix - COMPLETE
-- 📋 **Phase 2**: Audio Streaming - NEXT
-- 📋 **Phase 3**: User Interface (Buttons + Volume)
+- ✅ **Phase 2**: Audio Streaming + Controls - COMPLETE
+- 📋 **Phase 3**: Story Selection UI - IN PROGRESS
 - 📋 **Phase 4**: Cloud Integration
 
 ---
 
-**Last Updated**: Phase 1 Complete with BLE  
-**Version**: 1.0  
+**Last Updated**: Phase 2 Complete  
+**Version**: 2.0  
 **Status**: Production Ready

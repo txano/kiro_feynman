@@ -3,7 +3,6 @@
 #include "led_matrix.h"
 #include "wifi_provisioning.h"
 #include "audio.h"
-#include "openai_tts.h"
 #include <esp_log.h>
 #include <esp_wifi.h>
 #include <esp_netif.h>
@@ -21,7 +20,7 @@ static unsigned long last_ready_sound = 0;
 static bool ble_ready_tone_played = false;
 static bool wifi_connected_tone_played = false;
 static bool play_connected_sound = false;  // Flag to play connected sound in main loop
-static bool test_openai_tts = false;  // Flag to test OpenAI TTS
+static bool download_test_file = false;  // Flag to download test MP3 after WiFi connects
 static unsigned long wifi_connected_time = 0;  // Time when WiFi connected
 
 #define READY_SOUND_INTERVAL 10000  // Play ready.mp3 every 10 seconds
@@ -128,10 +127,6 @@ void setup() {
     // Initialize audio
     ESP_LOGI(TAG, "Initializing audio...");
     audio_init();
-    
-    // Initialize OpenAI TTS (disabled - API key should be configured separately)
-    // ESP_LOGI(TAG, "Initializing OpenAI TTS...");
-    // openai_tts_init("YOUR_API_KEY_HERE");
     
     // Initialize reset button (BOOT button)
     pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
@@ -281,11 +276,11 @@ void loop() {
         ESP_LOGI(TAG, "Playing connected sound...");
         audio_play_mp3_file("/connected.mp3");
         play_connected_sound = false;
-        test_openai_tts = true;  // Set flag to test TTS after connected sound
+        download_test_file = true;  // Set flag to download test file after connected sound
     }
     
     // Download file 5 seconds after WiFi connected (but don't play yet)
-    if (test_openai_tts && !audio_is_playing() && !file_downloaded && (now - wifi_connected_time > 5000)) {
+    if (download_test_file && !audio_is_playing() && !file_downloaded && (now - wifi_connected_time > 5000)) {
         ESP_LOGI(TAG, "Downloading MP3 file (will play when button pressed)...");
         
         // Check available space
@@ -308,7 +303,7 @@ void loop() {
         } else {
             ESP_LOGE(TAG, "File download failed!");
         }
-        test_openai_tts = false;
+        download_test_file = false;
     }
     
     // Check play button (GPIO 33) - active LOW

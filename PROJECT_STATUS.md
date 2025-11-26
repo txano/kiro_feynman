@@ -44,20 +44,21 @@
 ├── include/
 │   ├── audio.h                   # Audio playback API
 │   ├── led_matrix.h              # LED matrix API
+│   ├── openai_tts.h              # OpenAI TTS API (placeholder)
 │   └── wifi_provisioning.h       # WiFi provisioning API
 ├── src/
-│   ├── audio.cpp                 # I2S audio implementation
+│   ├── audio.cpp                 # MP3 playback & HTTPS download
 │   ├── main.cpp                  # Main application
 │   ├── led_matrix.cpp            # LED matrix implementation
-│   └── wifi_provisioning.cpp     # WiFi provisioning implementation
-├── arduino/                      # Original Arduino examples (reference)
+│   ├── openai_tts.cpp            # OpenAI TTS (placeholder)
+│   └── wifi_provisioning.cpp     # WiFi provisioning + NTP
+├── data/
+│   ├── ready.mp3                 # BLE ready sound
+│   └── connected.mp3             # WiFi connected sound
 ├── platformio.ini                # Build configuration
-├── partitions.csv                # Flash layout
-├── sdkconfig.defaults            # ESP-IDF config
-├── README.md                     # Project documentation
-├── TESTING.md                    # Testing guide
-├── COMMANDS.md                   # Command reference
-└── PROJECT_STATUS.md             # This file
+├── partitions.csv                # Flash layout (2MB app, 2MB LittleFS)
+├── sdkconfig.defaults            # ESP-IDF/mbedTLS config
+└── Documentation files
 ```
 
 ### Testing Status
@@ -188,13 +189,19 @@
 5. **Plan** Phase 2 implementation details
 6. **Research** audio streaming libraries and codecs
 
-## Questions to Resolve
+## Questions Resolved
 
-1. What audio format will the service provide? (MP3, AAC, WAV, etc.)
-2. Will stories be streamed or downloaded?
-3. What's the expected story length? (affects buffer sizing)
-4. How many stories should be cached locally?
-5. What's the target audio quality? (bitrate, sample rate)
+1. ✅ **Audio format**: MP3 (using ESP8266Audio with Helix decoder)
+2. ✅ **Streaming approach**: Download to LittleFS then play (reliable for large files)
+3. ✅ **Story length**: Tested with 2MB+ files, ~2MB LittleFS available
+4. ✅ **Sample rate**: 44.1kHz (supports speech and music)
+5. ✅ **Caching**: Single file at a time in /temp_stream.mp3
+
+## Open Questions
+
+1. How will story selection work? (cloud catalog, local list, etc.)
+2. What cloud service will host the stories?
+3. How will user accounts be managed?
 
 ---
 

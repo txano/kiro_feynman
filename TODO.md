@@ -128,8 +128,8 @@
 - [x] No factory reset mechanism - FIXED (GPIO 34 reset button)
 - [ ] LED matrix brightness could damage board if set too high
 - [ ] No error recovery for failed WiFi connection
-- [ ] HTTPS certificate validation disabled (insecure mode)
-- [ ] OpenAI API key hardcoded in source (should use secure storage)
+- [ ] HTTPS certificate validation disabled (insecure mode for development)
+- [ ] OpenAI TTS module not integrated (placeholder only)
 
 ## 📚 Documentation
 

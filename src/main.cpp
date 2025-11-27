@@ -45,6 +45,7 @@ static int last_volume_value = -1;
 static bool play_button_last_state = HIGH;
 static unsigned long play_button_press_start = 0;
 static bool play_button_was_pressed = false;
+static bool play_button_long_press_handled = false;  // Prevent action on release after long press
 static bool file_downloaded = false;
 static bool file_ready_to_play = false;
 static bool download_started = false;
@@ -330,25 +331,29 @@ void loop() {
         if (digitalRead(PLAY_BUTTON_PIN) == LOW) {
             play_button_press_start = now;
             play_button_was_pressed = true;
+            play_button_long_press_handled = false;  // Reset long press flag
             ESP_LOGI(TAG, "Play button pressed");
         }
     } else if (play_button_state == LOW && play_button_was_pressed) {
         // Button is being held - check for stop (4 seconds)
         unsigned long hold_time = now - play_button_press_start;
         
-        if (hold_time >= PLAY_BUTTON_STOP_HOLD_TIME && audio_is_playing()) {
+        if (hold_time >= PLAY_BUTTON_STOP_HOLD_TIME && audio_is_playing() && !play_button_long_press_handled) {
             ESP_LOGI(TAG, "Stopping playback (held for %lu ms)", hold_time);
             audio_stop();
             file_ready_to_play = true;  // Allow replay
-            play_button_was_pressed = false;  // Prevent repeated triggers
+            play_button_long_press_handled = true;  // Mark that we handled the long press
         }
     } else if (play_button_state == HIGH && play_button_was_pressed) {
-        // Button released - check what action to take
-        unsigned long hold_time = now - play_button_press_start;
+        // Button released
         play_button_was_pressed = false;
         
-        // Only act on short press (not if we already stopped)
-        if (hold_time < PLAY_BUTTON_STOP_HOLD_TIME) {
+        // Skip action if long press was already handled
+        if (play_button_long_press_handled) {
+            ESP_LOGI(TAG, "Play button released (long press already handled)");
+            play_button_long_press_handled = false;
+        } else {
+            // Short press - toggle pause/resume or start playback
             if (audio_is_playing()) {
                 // Toggle pause/resume
                 audio_toggle_pause();

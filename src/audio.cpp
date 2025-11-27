@@ -269,8 +269,21 @@ void audio_download_loop() {
         }
     }
     
-    // Check if download is complete
-    if (!stream->connected() && stream->available() == 0) {
+    // Check if download is complete - multiple conditions
+    bool download_done = false;
+    
+    // Condition 1: We received all expected bytes (if Content-Length was provided)
+    if (download_total_bytes > 0 && download_received_bytes >= download_total_bytes) {
+        ESP_LOGI(TAG, "Download complete: received all %d bytes", download_received_bytes);
+        download_done = true;
+    }
+    // Condition 2: Connection closed and no more data
+    else if (!stream->connected() && stream->available() == 0) {
+        ESP_LOGI(TAG, "Download complete: connection closed, received %d bytes", download_received_bytes);
+        download_done = true;
+    }
+    
+    if (download_done) {
         download_file.close();
         download_http->end();
         delete download_http;
@@ -280,7 +293,7 @@ void audio_download_loop() {
         
         if (download_received_bytes > 0) {
             download_state = DOWNLOAD_COMPLETE;
-            ESP_LOGI(TAG, "Download complete: %d bytes", download_received_bytes);
+            ESP_LOGI(TAG, "File saved successfully: %d bytes", download_received_bytes);
         } else {
             download_state = DOWNLOAD_FAILED;
             ESP_LOGE(TAG, "Download failed: no data received");

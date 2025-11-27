@@ -22,14 +22,34 @@ While we use the Arduino framework, we're building with PlatformIO, NOT the Ardu
 - We use **Arduino APIs** for basic I/O, Serial, and some libraries
 - This hybrid approach is common in ESP32 development with PlatformIO
 
-## Network Stack
-- WiFi: ESP-IDF WiFi (not Arduino WiFi library)
-- DNS: lwIP (ESP-IDF's network stack)
-- HTTP: esp_http_client (ESP-IDF)
-- The Arduino WiFi library doesn't work properly with ESP-IDF WiFi provisioning
+## Network Stack - CRITICAL
+**We use ESP-IDF WiFi stack, NOT Arduino WiFi library!**
+
+This has important implications:
+- WiFi: ESP-IDF WiFi (`esp_wifi.h`, `esp_netif.h`)
+- DNS: Must use lwIP's `getaddrinfo()` - Arduino's `WiFi.hostByName()` DOES NOT WORK
+- HTTP: Can use Arduino HTTPClient but DNS must be resolved first via lwIP
+- The Arduino WiFi library conflicts with ESP-IDF WiFi provisioning
+
+### DNS Resolution Pattern
+When making HTTP/HTTPS requests, ALWAYS resolve DNS using lwIP first:
+```cpp
+#include <lwip/netdb.h>
+
+struct addrinfo hints = {};
+hints.ai_family = AF_INET;
+hints.ai_socktype = SOCK_STREAM;
+struct addrinfo *result = NULL;
+int err = getaddrinfo(hostname, "443", &hints, &result);
+// Then use WiFiClientSecure/HTTPClient
+```
+
+### Common Pitfall
+Arduino's `WiFiClientSecure` and `HTTPClient` internally use `hostByName()` which fails with ESP-IDF WiFi. Always pre-resolve DNS before HTTP connections.
 
 ## Always Prioritize
 1. PlatformIO build system commands
-2. ESP-IDF networking APIs
-3. platformio.ini for configuration
-4. ESP-IDF documentation for low-level features
+2. ESP-IDF networking APIs (esp_wifi, esp_netif, lwIP)
+3. lwIP for DNS resolution (`getaddrinfo`)
+4. platformio.ini for configuration
+5. ESP-IDF documentation for low-level features
